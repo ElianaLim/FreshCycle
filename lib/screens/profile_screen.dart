@@ -34,6 +34,7 @@ class _LoginRegisterScreenState extends State<_LoginRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _numberController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
@@ -41,6 +42,7 @@ class _LoginRegisterScreenState extends State<_LoginRegisterScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _numberController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -61,6 +63,7 @@ class _LoginRegisterScreenState extends State<_LoginRegisterScreen> {
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
+        number: _numberController.text.trim(),
       );
     }
 
@@ -166,6 +169,26 @@ class _LoginRegisterScreenState extends State<_LoginRegisterScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
+
+                // Phone Number field
+                if (!_isLogin) ...[
+                TextFormField(
+                  controller: _numberController,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone number (09)',
+                    hintText: 'Enter your phone number',
+                    prefixIcon: Icon(Icons.phone),
+                  ),
+                  keyboardType: TextInputType.phone,
+                  autocorrect: false,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your phone number';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16)],
 
                 // Password field
                 TextFormField(
@@ -332,6 +355,15 @@ class _ProfileContent extends StatelessWidget {
                   // User Email
                   Text(
                     user.email,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: FreshCycleTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // User Email
+                  Text(
+                    user.number,
                     style: const TextStyle(
                       fontSize: 14,
                       color: FreshCycleTheme.textSecondary,

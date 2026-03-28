@@ -4,6 +4,7 @@ class User {
   final String email;
   final String initials;
   final String? profilePictureUrl;
+  final String number;
 
   const User({
     required this.id,
@@ -11,6 +12,7 @@ class User {
     required this.email,
     required this.initials,
     this.profilePictureUrl,
+    required this.number,
   });
 
   factory User.fromMap(Map<String, dynamic> map) {
@@ -20,6 +22,7 @@ class User {
       email: map['email'] as String,
       initials: map['initials'] as String? ?? 'U',
       profilePictureUrl: map['profile_picture_url'] as String?,
+      number: map['phone_number'] as String,
     );
   }
 
@@ -30,5 +33,6 @@ class User {
     email: 'maria.clara@example.com',
     initials: 'MC',
     profilePictureUrl: null,
+    number: '09123456789',
   );
 }
