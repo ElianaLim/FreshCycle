@@ -8,6 +8,7 @@ import 'messages_screen.dart';
 import 'post_listing_screen.dart';
 import 'package:provider/provider.dart';
 import '../providers/listing_provider.dart';
+import 'listing_detail_screen.dart';
 
 class MarketplaceScreen extends StatefulWidget {
   const MarketplaceScreen({super.key});
@@ -493,7 +494,18 @@ class _ListingsTab extends StatelessWidget {
               delegate: SliverChildBuilderDelegate(
                 (context, i) => SellingCard(
                   listing: listings[i],
-                  onTap: () {},
+                  // Connect the Tap here
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ListingDetailScreen(
+                          listing: listings[i],
+                          onMessage: () => onMessage(listings[i]), 
+                        ),
+                      ),
+                    );
+                  },
                   onMessage: () => onMessage(listings[i]),
                 ),
                 childCount: listings.length,
