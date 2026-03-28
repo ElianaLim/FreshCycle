@@ -8,7 +8,7 @@ class RewardsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final points = context.watch<AuthProvider>().user?.points ?? 0;
+    final points = context.watch<AuthProvider>().rewardPoints;
 
     return Scaffold(
       backgroundColor: FreshCycleTheme.surfaceGray,
@@ -18,7 +18,7 @@ class RewardsScreen extends StatelessWidget {
         elevation: 0,
         title: const Text(
           'Your Rewards',
-          style: TextStyle(fontWeight: FontWeight.w600),
+          style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
         ),
         actions: [
           IconButton(
@@ -116,56 +116,56 @@ class RewardsScreen extends StatelessWidget {
                   _TransactionItem(
                     title: 'Listed Item Sold',
                     description: '5 kg of fresh vegetables',
-                    points: 50,
+                    points: 20,
                     date: 'Mar 28, 2026',
                     isPositive: true,
                   ),
                   _TransactionItem(
                     title: 'Posted Listing',
                     description: 'Creating a new listing',
-                    points: 10,
+                    points: 5,
                     date: 'Mar 25, 2026',
                     isPositive: true,
                   ),
                   _TransactionItem(
                     title: 'Completed Pickup',
                     description: 'Food saved from waste',
-                    points: 25,
+                    points: 10,
                     date: 'Mar 22, 2026',
                     isPositive: true,
                   ),
                   _TransactionItem(
                     title: 'First Listing Reward',
                     description: 'Welcome bonus',
-                    points: 20,
+                    points: 10,
                     date: 'Mar 20, 2026',
                     isPositive: true,
                   ),
                   _TransactionItem(
                     title: 'Points Redeemed',
                     description: 'Discount on next purchase',
-                    points: -30,
+                    points: -15,
                     date: 'Mar 15, 2026',
                     isPositive: false,
                   ),
                   _TransactionItem(
                     title: 'Posted Listing',
                     description: 'Creating a new listing',
-                    points: 10,
+                    points: 5,
                     date: 'Mar 10, 2026',
                     isPositive: true,
                   ),
                   _TransactionItem(
                     title: 'Listing Bonus',
                     description: 'Listed 3 items this week',
-                    points: 15,
+                    points: 8,
                     date: 'Mar 5, 2026',
                     isPositive: true,
                   ),
                   _TransactionItem(
                     title: 'Verified Account',
                     description: 'Account verification bonus',
-                    points: 50,
+                    points: 20,
                     date: 'Feb 28, 2026',
                     isPositive: true,
                   ),
@@ -213,11 +213,11 @@ class RewardsScreen extends StatelessWidget {
               const SizedBox(height: 12),
               _InfoItem(
                 icon: Icons.add_circle_outline,
-                text: 'Post a new listing: +10 points',
+                text: 'Post a new listing: +5 points',
               ),
               _InfoItem(
                 icon: Icons.sell_outlined,
-                text: 'Sell an item: +50 points',
+                text: 'Sell an item: +20 points',
               ),
               _InfoItem(
                 icon: Icons.check_circle_outline,
@@ -225,11 +225,11 @@ class RewardsScreen extends StatelessWidget {
               ),
               _InfoItem(
                 icon: Icons.emoji_events_outlined,
-                text: 'Weekly listing bonus: +15 points',
+                text: 'Weekly listing bonus: +8 points',
               ),
               _InfoItem(
                 icon: Icons.verified_outlined,
-                text: 'Verify your account: +50 points',
+                text: 'Verify your account: +20 points',
               ),
               const SizedBox(height: 20),
               const Text(

@@ -10,6 +10,7 @@ import '../providers/auth_provider.dart';
 import '../providers/listing_provider.dart';
 import '../providers/messages_provider.dart';
 import 'listing_detail_screen.dart';
+import 'rewards_screen.dart';
 import '../providers/notifications_provider.dart';
 
 class MessagesScreen extends StatefulWidget {
@@ -642,7 +643,16 @@ class ChatScreenState extends State<ChatScreen> {
         await context.read<AuthProvider>().addRewardPoints(rewardPoints);
       }
       if (!mounted) return;
-      await _showRewardCelebrationDialog(rewardPoints);
+      final shouldOpenRewards = await _showRewardCelebrationDialog(
+        rewardPoints,
+      );
+      if (!mounted) return;
+      if (shouldOpenRewards) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RewardsScreen()),
+        );
+      }
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('This transaction is already completed.')),
@@ -654,13 +664,13 @@ class ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _showRewardCelebrationDialog(int points) async {
+  Future<bool> _showRewardCelebrationDialog(int points) async {
     final confettiController = ConfettiController(
       duration: const Duration(seconds: 2),
     );
     confettiController.play();
 
-    await showDialog<void>(
+    final shouldOpenRewards = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -714,12 +724,22 @@ class ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      child: const Text('Awesome!'),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(dialogContext, true),
+                          child: const Text('View rewards'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () => Navigator.pop(dialogContext, false),
+                          child: const Text('Awesome!'),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -730,6 +750,7 @@ class ChatScreenState extends State<ChatScreen> {
     );
 
     confettiController.dispose();
+    return shouldOpenRewards ?? false;
   }
 
   Widget _buildListingPreviewTile() {

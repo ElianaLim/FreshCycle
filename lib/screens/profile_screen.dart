@@ -177,23 +177,24 @@ class _LoginRegisterScreenState extends State<_LoginRegisterScreen> {
 
                 // Phone Number field
                 if (!_isLogin) ...[
-                TextFormField(
-                  controller: _numberController,
-                  decoration: const InputDecoration(
-                    labelText: 'Phone number (09)',
-                    hintText: 'Enter your phone number',
-                    prefixIcon: Icon(Icons.phone),
+                  TextFormField(
+                    controller: _numberController,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone number (09)',
+                      hintText: 'Enter your phone number',
+                      prefixIcon: Icon(Icons.phone),
+                    ),
+                    keyboardType: TextInputType.phone,
+                    autocorrect: false,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your phone number';
+                      }
+                      return null;
+                    },
                   ),
-                  keyboardType: TextInputType.phone,
-                  autocorrect: false,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your phone number';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16)],
+                  const SizedBox(height: 16),
+                ],
 
                 // Password field
                 TextFormField(
@@ -308,6 +309,8 @@ class _ProfileContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rewardPoints = context.watch<AuthProvider>().rewardPoints;
+
     // Generate avatar colors based on user id
     final idx = user.id.hashCode.abs() % FreshCycleTheme.avatarBgs.length;
     final avatarBg = FreshCycleTheme.avatarBgs[idx];
@@ -322,9 +325,7 @@ class _ProfileContent extends StatelessWidget {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-              ),
+              decoration: const BoxDecoration(color: Colors.white),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -366,7 +367,11 @@ class _ProfileContent extends StatelessWidget {
                         // Email with icon
                         Row(
                           children: [
-                            Icon(Icons.email, size: 16, color: FreshCycleTheme.textSecondary),
+                            Icon(
+                              Icons.email,
+                              size: 16,
+                              color: FreshCycleTheme.textSecondary,
+                            ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
@@ -381,18 +386,24 @@ class _ProfileContent extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 2),
-                        Row(children: [
-                          Icon(Icons.phone, size: 16, color: FreshCycleTheme.textSecondary),
-                          const SizedBox(width: 4),
-                        // Phone number
-                        Text(
-                          user.number,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: FreshCycleTheme.textSecondary,
-                          ),
-                        )
-                        ],),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.phone,
+                              size: 16,
+                              color: FreshCycleTheme.textSecondary,
+                            ),
+                            const SizedBox(width: 4),
+                            // Phone number
+                            Text(
+                              user.number,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: FreshCycleTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -405,13 +416,14 @@ class _ProfileContent extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => const RewardsScreen(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const RewardsScreen()),
                 );
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
@@ -451,7 +463,7 @@ class _ProfileContent extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${user.points} Points',
+                            '$rewardPoints Points',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -514,7 +526,7 @@ class _ProfileContent extends StatelessWidget {
                         );
                       },
                     ),
-                    
+
                     _MenuItem(
                       icon: Icons.settings_outlined,
                       label: 'Settings',
@@ -535,7 +547,9 @@ class _ProfileContent extends StatelessWidget {
                           width: double.infinity,
                           height: 48,
                           child: OutlinedButton(
-                            onPressed: auth.isLoading ? null : () => auth.logout(),
+                            onPressed: auth.isLoading
+                                ? null
+                                : () => auth.logout(),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: FreshCycleTheme.urgencyCritical,
                               side: const BorderSide(
@@ -612,11 +626,7 @@ class _MenuItem extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                icon,
-                size: 22,
-                color: FreshCycleTheme.textSecondary,
-              ),
+              Icon(icon, size: 22, color: FreshCycleTheme.textSecondary),
               const SizedBox(width: 12),
               Text(
                 label,

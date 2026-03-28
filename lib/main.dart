@@ -14,9 +14,11 @@ import 'screens/pantry_screen.dart';
 import 'screens/recipes_screen.dart';
 import 'data/db.dart';
 import 'services/local_notification_service.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   
   // Initialize Supabase
   await DB.init();

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:math' as math;
 import '../models/user.dart';
 import '../data/db.dart';
 
@@ -7,10 +8,13 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  static const int baseRewardPoints = 50;
+
   User? get user => _user;
   bool get isLoggedIn => _user != null;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  int get rewardPoints => math.max(_user?.points ?? 0, baseRewardPoints);
 
   // Check for existing session on app start
   Future<void> checkSession() async {
@@ -209,7 +213,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> addRewardPoints(int points) async {
     if (_user == null || points <= 0) return;
 
-    final updatedPoints = _user!.points + points;
+    final updatedPoints = rewardPoints + points;
     _user = User(
       id: _user!.id,
       name: _user!.name,

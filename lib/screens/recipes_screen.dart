@@ -3,6 +3,9 @@ import '../data/sample_recipes.dart';
 import '../models/recipe.dart';
 import '../theme/app_theme.dart';
 import 'recipe_detail_screen.dart';
+import '../data/db.dart';
+import '../models/pantry_item.dart';
+import '../services/ai_recipe_service.dart';
 
 class RecipesScreen extends StatefulWidget {
   const RecipesScreen({super.key});
@@ -15,6 +18,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
   String _selectedTag = 'All';
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _isGenerating = false;
 
   List<String> get _allTags {
     final tags = <String>{'All'};
@@ -26,12 +30,12 @@ class _RecipesScreenState extends State<RecipesScreen> {
 
   List<Recipe> get _filteredRecipes {
     var recipes = sampleRecipes;
-    
+
     // Filter by tag
     if (_selectedTag != 'All') {
       recipes = recipes.where((r) => r.tags.contains(_selectedTag)).toList();
     }
-    
+
     // Filter by search
     if (_searchQuery.isNotEmpty) {
       recipes = recipes.where((r) {
@@ -39,7 +43,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
             r.description.toLowerCase().contains(_searchQuery.toLowerCase());
       }).toList();
     }
-    
+
     return recipes;
   }
 
@@ -48,6 +52,160 @@ class _RecipesScreenState extends State<RecipesScreen> {
     _searchController.dispose();
     super.dispose();
   }
+
+  Future<void> _generateRecipe({required bool expiringOnly}) async {
+    setState(() => _isGenerating = true);
+
+    try {
+      // 1. Fetch Pantry Items using DB exactly like the Pantry tab does
+      final deviceId = await DB.getDeviceId();
+      final authUser = DB.getCurrentUser();
+      List<Map<String, dynamic>> rows;
+
+      if (authUser != null) {
+        rows = await DB.client
+            .from('pantry_items')
+            .select()
+            .eq('user_id', authUser['id'])
+            .eq('is_consumed', false)
+            .order('expiry_date', ascending: true);
+      } else {
+        rows = await DB.client
+            .from('pantry_items')
+            .select()
+            .eq('device_id', deviceId)
+            .isFilter('user_id', null)
+            .eq('is_consumed', false)
+            .order('expiry_date', ascending: true);
+      }
+
+      List<PantryItem> items = rows.map((r) => PantryItem.fromMap(r)).toList();
+
+      // 2. Filter if the user chose "Expiring Soon" (<= 3 days left)
+      if (expiringOnly) {
+        final today = DateTime(
+          DateTime.now().year,
+          DateTime.now().month,
+          DateTime.now().day,
+        );
+        items = items.where((i) {
+          final e = DateTime(
+            i.computedExpiryDate.year,
+            i.computedExpiryDate.month,
+            i.computedExpiryDate.day,
+          );
+          final d = e.difference(today).inDays;
+          return d <= 3;
+        }).toList();
+      }
+
+      if (items.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                expiringOnly
+                    ? 'No items are expiring soon! Great job.'
+                    : 'Your pantry is empty! Add items first.',
+              ),
+              backgroundColor: FreshCycleTheme.urgencySoon,
+            ),
+          );
+        }
+        setState(() => _isGenerating = false);
+        return;
+      }
+
+      // 3. Call the Live LLM Service
+      final generatedRecipe = await AiRecipeService.generateRecipeFromPantry(
+        items,
+      );
+
+      if (!mounted) return;
+
+      // 4. Navigate to the detail screen with the real AI recipe
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => RecipeDetailScreen(recipe: generatedRecipe),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('AI Chef encountered an error: $e'),
+            backgroundColor: FreshCycleTheme.urgencyCritical,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGenerating = false);
+      }
+    }
+  }
+
+
+//       // 3. Simulate an AI network call (Replace this with actual OpenAI/Gemini call later)
+//       await Future.delayed(const Duration(seconds: 2));
+
+//       // 4. Create the dynamically generated recipe
+//       final itemNames = items.take(4).map((e) => e.name).toList();
+//       final mainIngredient = itemNames.first;
+//       final title = 'AI Special: $mainIngredient Surprise';
+
+//       final generatedRecipe = Recipe(
+//         id: 'ai_${DateTime.now().millisecondsSinceEpoch}',
+//         title: title,
+//         description: 'An AI-generated recipe to help you save food!\n\n'
+//             'Note: This recipe assumes you have basic cooking necessities '
+//             '(like cooking oil, sugar, garlic, salt, etc.). If you are missing any of '
+//             'these basics, you can easily make a request for them in the Marketplace tab!',
+//         imageUrl:
+//             'https://img.freepik.com/free-photo/healthy-vegetables-wooden-table_1150-38014.jpg',
+//         prepTimeMinutes: 10,
+//         cookTimeMinutes: 20,
+//         servings: 2,
+//         ingredients: [
+//           ...items.map((e) => 'From your pantry: ${e.name}'),
+//           'Basic necessities (cooking oil, garlic, salt, pepper, sugar to taste)',
+//         ],
+//         instructions: [
+//           'Gather your pantry items: ${itemNames.join(', ')}.',
+//           'Prepare the ingredients by washing, peeling, and chopping as necessary.',
+//           'Heat a pan over medium heat with a splash of cooking oil and sauté your garlic until fragrant.',
+//           'Add your pantry items into the pan. Stir-fry them together until thoroughly cooked.',
+//           'Season everything with salt, pepper, and a pinch of sugar to balance the flavors.',
+//           'Serve hot and enjoy a delicious meal that prevented food waste!',
+//         ],
+//         tags: ['AI Generated', 'Zero Waste', 'Quick'],
+//         difficulty: 'Easy',
+//       );
+
+//       if (!mounted) return;
+
+//       Navigator.push(
+//         context,
+//         MaterialPageRoute(
+//           builder: (context) => RecipeDetailScreen(recipe: generatedRecipe),
+//         ),
+//       );
+//     } catch (e) {
+//       if (mounted) {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           SnackBar(
+//             content: Text('Failed to generate recipe: $e'),
+//             backgroundColor: FreshCycleTheme.urgencyCritical,
+//           ),
+//         );
+//       }
+//     } finally {
+//       if (mounted) {
+//         setState(() => _isGenerating = false);
+//       }
+//     }
+//   }
 
   @override
   Widget build(BuildContext context) {
@@ -161,6 +319,103 @@ class _RecipesScreenState extends State<RecipesScreen> {
               ),
             ),
           ),
+          
+          // AI Recipe Generator Section
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: FreshCycleTheme.primaryLight.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                      color: FreshCycleTheme.primary.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.auto_awesome,
+                            color: FreshCycleTheme.primaryDark),
+                        SizedBox(width: 8),
+                        Text(
+                          'AI Chef',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: FreshCycleTheme.primaryDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Turn your pantry items into a delicious meal! We assume you have basic necessities like oil, sugar, and garlic. If you\'re missing something, easily make a request in the Marketplace!',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: FreshCycleTheme.primaryDark,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _isGenerating
+                        ? const Center(
+                            child: Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: CircularProgressIndicator(
+                                color: FreshCycleTheme.primary),
+                          ))
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: () => _generateRecipe(
+                                      expiringOnly: true),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: FreshCycleTheme.primary,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: const Text('Use Expiring Soon',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600)),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => _generateRecipe(
+                                      expiringOnly: false),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: FreshCycleTheme.primary,
+                                    side: const BorderSide(
+                                        color: FreshCycleTheme.primary),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: const Text('Use All Items',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600)),
+                                ),
+                              ),
+                            ],
+                          ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
           if (_filteredRecipes.isEmpty)
             SliverFillRemaining(
               child: Center(
@@ -198,7 +453,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
             )
           else
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
