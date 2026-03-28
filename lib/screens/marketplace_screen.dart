@@ -4,6 +4,7 @@ import '../data/sample_data.dart';
 import '../theme/app_theme.dart';
 import '../widgets/selling_card.dart';
 import '../widgets/request_card.dart';
+import 'messages_screen.dart';
 
 class MarketplaceScreen extends StatefulWidget {
   const MarketplaceScreen({super.key});
@@ -98,9 +99,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
     return requests;
   }
 
-  List<String> get _currentCategories =>
-      _tabController.index == 0 ? _sellingCategories : _requestCategories;
-
   void _showMessageSheet(BuildContext context, Listing listing) {
     showModalBottomSheet(
       context: context,
@@ -183,7 +181,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
                   Icons.chat_bubble_outline_rounded,
                   color: FreshCycleTheme.textPrimary,
                 ),
-                onPressed: () {},
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const MessagesScreen(),
+                  ),
+                ),
               ),
             ],
             bottom: PreferredSize(

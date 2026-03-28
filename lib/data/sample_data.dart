@@ -1,4 +1,5 @@
 import '../models/listing.dart';
+import '../models/messages.dart';
 
 final List<Listing> sampleListings = [
   Listing(
@@ -161,5 +162,121 @@ final List<Listing> sampleRequests = [
       barangay: 'Batong Malake',
     ),
     tags: ['eggs', 'dairy'],
+  ),
+];
+
+final List<Conversation> sampleConversations = [
+  // --- Listing context ---
+  Conversation(
+    id: 'c1',
+    participantId: 's1',
+    participantName: 'Maria R.',
+    participantInitials: 'MR',
+    participantIsVerified: true,
+    context: ConversationContext.listing,
+    relatedListingId: '1',
+    relatedListingTitle: 'Kangkong (water spinach)',
+    messages: [
+      ChatMessage(
+        id: 'm1',
+        senderId: 's1',
+        text: 'Hi! Yes it\'s still available. You can pick up anytime before 6pm.',
+        sentAt: DateTime.now().subtract(const Duration(minutes: 18)),
+        status: MessageStatus.read,
+      ),
+      ChatMessage(
+        id: 'm2',
+        senderId: 'user_001',
+        text: 'Great, I\'ll be there around 5pm. See you!',
+        sentAt: DateTime.now().subtract(const Duration(minutes: 10)),
+        status: MessageStatus.delivered,
+      ),
+      ChatMessage(
+        id: 'm3',
+        senderId: 's1',
+        text: 'Perfect, see you then!',
+        sentAt: DateTime.now().subtract(const Duration(minutes: 8)),
+        status: MessageStatus.read,
+      ),
+    ],
+  ),
+  Conversation(
+    id: 'c2',
+    participantId: 's3',
+    participantName: 'Ana C.',
+    participantInitials: 'AC',
+    participantIsVerified: true,
+    context: ConversationContext.listing,
+    relatedListingId: '3',
+    relatedListingTitle: 'Sourdough loaf',
+    messages: [
+      ChatMessage(
+        id: 'm4',
+        senderId: 'user_001',
+        text: 'Is this still available?',
+        sentAt: DateTime.now().subtract(const Duration(hours: 2)),
+        status: MessageStatus.read,
+      ),
+      ChatMessage(
+        id: 'm5',
+        senderId: 's3',
+        text: 'Yes! Come by Sikatuna anytime today.',
+        sentAt: DateTime.now().subtract(const Duration(hours: 1, minutes: 50)),
+        status: MessageStatus.read,
+      ),
+    ],
+  ),
+  // --- Request context ---
+  Conversation(
+    id: 'c3',
+    participantId: 'r_s1',
+    participantName: 'Ben T.',
+    participantInitials: 'BT',
+    participantIsVerified: false,
+    context: ConversationContext.request,
+    relatedListingId: 'r1',
+    relatedListingTitle: 'Looking for: ripe tomatoes',
+    messages: [
+      ChatMessage(
+        id: 'm6',
+        senderId: 'user_001',
+        text: 'Hi Ben! I have about 600g of tomatoes I can share. They\'re very ripe, perfect for sauce.',
+        sentAt: DateTime.now().subtract(const Duration(minutes: 45)),
+        status: MessageStatus.delivered,
+      ),
+      ChatMessage(
+        id: 'm7',
+        senderId: 'r_s1',
+        text: 'That\'s perfect! How much are you asking?',
+        sentAt: DateTime.now().subtract(const Duration(minutes: 40)),
+        status: MessageStatus.read,
+      ),
+      ChatMessage(
+        id: 'm8',
+        senderId: 'user_001',
+        text: 'No charge, just happy to not waste them!',
+        sentAt: DateTime.now().subtract(const Duration(minutes: 35)),
+        status: MessageStatus.sent,
+      ),
+    ],
+  ),
+  Conversation(
+    id: 'c4',
+    participantId: 'r_s3',
+    participantName: 'Rosa C.',
+    participantInitials: 'RC',
+    participantIsVerified: true,
+    context: ConversationContext.request,
+    relatedListingId: 'r3',
+    relatedListingTitle: 'Looking for: eggs (any qty)',
+    messages: [
+      ChatMessage(
+        id: 'm9',
+        senderId: 'r_s3',
+        text: 'Thanks for reaching out! How many eggs do you have?',
+        sentAt: DateTime.now().subtract(const Duration(hours: 3)),
+        status: MessageStatus.read,
+      ),
+    ],
   ),
 ];
