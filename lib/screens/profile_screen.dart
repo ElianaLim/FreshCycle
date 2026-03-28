@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 import '../models/user.dart';
 import '../theme/app_theme.dart';
 import '../providers/auth_provider.dart';
+import 'settings_screen.dart';
 import 'edit_profile_screen.dart';
 import 'my_listings_screen.dart';
 import 'saved_items_screen.dart';
+import 'rewards_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -401,7 +403,12 @@ class _ProfileContent extends StatelessWidget {
             // Rewards Banner
             GestureDetector(
               onTap: () {
-                // TODO: Navigate to rewards screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const RewardsScreen(),
+                  ),
+                );
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -512,7 +519,12 @@ class _ProfileContent extends StatelessWidget {
                       icon: Icons.settings_outlined,
                       label: 'Settings',
                       onTap: () {
-                        // TODO: Navigate to settings
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SettingsScreen(),
+                          ),
+                        );
                       },
                     ),
                     const Spacer(),

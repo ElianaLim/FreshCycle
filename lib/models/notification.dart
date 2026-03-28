@@ -7,6 +7,10 @@ enum NotificationType {
   offerReceived,
   offerAccepted,
   offerRejected,
+  pantryExpiringSoon,
+  pantryExpiresTomorrow,
+  pantryExpiresToday,
+  pantryExpired,
 }
 
 // Notification model representing a single notification
@@ -76,6 +80,14 @@ class AppNotification {
       case NotificationType.offerAccepted:
         return 'check_circle';
       case NotificationType.offerRejected:
+        return 'cancel';
+      case NotificationType.pantryExpiringSoon:
+        return 'warning';
+      case NotificationType.pantryExpiresTomorrow:
+        return 'warning';
+      case NotificationType.pantryExpiresToday:
+        return 'warning';
+      case NotificationType.pantryExpired:
         return 'cancel';
     }
   }
