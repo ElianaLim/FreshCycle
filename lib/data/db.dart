@@ -686,6 +686,63 @@ class DB {
       print('Pantry expiry notification error: $e');
     }
   }
+
+  // ── Location Settings (by device ID) ────────────────────────────────────────────
+
+  /// Get location settings for a device
+  static Future<Map<String, dynamic>?> getLocationSettings(String deviceId) async {
+    try {
+      final response = await _client!
+          .from('location_settings')
+          .select()
+          .eq('device_id', deviceId)
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      print('Get location settings error: $e');
+      return null;
+    }
+  }
+
+  /// Save or update location settings for a device
+  static Future<bool> saveLocationSettings({
+    required String deviceId,
+    required String locationName,
+    required double latitude,
+    required double longitude,
+    required double proximityRadius,
+  }) async {
+    try {
+      // Check if settings exist for this device
+      final existing = await getLocationSettings(deviceId);
+      
+      if (existing != null) {
+        // Update existing
+        await _client!.from('location_settings').update({
+          'location_name': locationName,
+          'latitude': latitude,
+          'longitude': longitude,
+          'proximity_radius': proximityRadius,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('device_id', deviceId);
+      } else {
+        // Insert new
+        await _client!.from('location_settings').insert({
+          'device_id': deviceId,
+          'location_name': locationName,
+          'latitude': latitude,
+          'longitude': longitude,
+          'proximity_radius': proximityRadius,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
+      return true;
+    } catch (e) {
+      print('Save location settings error: $e');
+      return false;
+    }
+  }
 }
 
 // UUID generator
