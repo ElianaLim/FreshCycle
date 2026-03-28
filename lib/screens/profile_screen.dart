@@ -321,7 +321,8 @@ class _ProfileContent extends StatelessWidget {
               decoration: const BoxDecoration(
                 color: Colors.white,
               ),
-              child: Column(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Profile Avatar
                   Container(
@@ -342,32 +343,53 @@ class _ProfileContent extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  // User Name
-                  Text(
-                    user.name,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: FreshCycleTheme.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  // User Email
-                  Text(
-                    user.email,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: FreshCycleTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  // User Email
-                  Text(
-                    user.number,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: FreshCycleTheme.textSecondary,
+                  const SizedBox(width: 32),
+                  // Name, email, phone column
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // User Name
+                        Text(
+                          user.name,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w600,
+                            color: FreshCycleTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        // Email with icon
+                        Row(
+                          children: [
+                            Icon(Icons.email, size: 16, color: FreshCycleTheme.textSecondary),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                user.email,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: FreshCycleTheme.textSecondary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Row(children: [
+                          Icon(Icons.phone, size: 16, color: FreshCycleTheme.textSecondary),
+                          const SizedBox(width: 4),
+                        // Phone number
+                        Text(
+                          user.number,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: FreshCycleTheme.textSecondary,
+                          ),
+                        )
+                        ],),
+                      ],
                     ),
                   ),
                 ],
