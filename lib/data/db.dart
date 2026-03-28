@@ -30,6 +30,7 @@ class DB {
     required String name,
     required String email,
     required String password,
+    required String number,
   }) async {
     try {
       // First, create auth user
@@ -59,6 +60,7 @@ class DB {
         'email': email,
         'initials': initials,
         'created_at': DateTime.now().toIso8601String(),
+        'phone_number': number,
       });
       
       return {
@@ -66,6 +68,7 @@ class DB {
         'name': name,
         'email': email,
         'initials': initials,
+        'phone_number': number,
       };
     } catch (e) {
       print('Registration error: $e');
