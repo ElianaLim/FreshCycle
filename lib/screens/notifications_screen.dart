@@ -174,8 +174,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       await provider.markAsRead(notification.id);
     }
     
-    // TODO: Navigate based on notification type
-    // For now, we just handle the read status
   }
 
   void _showClearConfirmation(BuildContext context, NotificationsProvider provider) {
