@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/listing_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/selling_card.dart';
+import 'listing_detail_screen.dart';
 
 class SavedItemsScreen extends StatelessWidget {
   const SavedItemsScreen({super.key});
@@ -38,7 +39,16 @@ class SavedItemsScreen extends StatelessWidget {
               itemBuilder: (context, index) {
                 return SellingCard(
                   listing: savedListings[index],
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ListingDetailScreen(
+                          listing: savedListings[index],
+                        ),
+                      ),
+                    );
+                  },
                   onMessage: () {}, // Optional: Add message logic here
                 );
               },
