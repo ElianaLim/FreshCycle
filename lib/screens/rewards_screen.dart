@@ -189,7 +189,15 @@ class RewardsScreen extends StatelessWidget {
               color: FreshCycleTheme.primary,
             ),
             const SizedBox(width: 8),
-            const Text('How to Earn & Use Rewards'),
+            Flexible(
+              child: Text(
+                'How to Earn & Use Rewards',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ],
         ),
         content: SingleChildScrollView(
