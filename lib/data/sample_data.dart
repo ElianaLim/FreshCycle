@@ -16,7 +16,7 @@ final List<Listing> sampleListings = [
     distanceKm: 0.3,
     urgency: UrgencyLevel.critical,
     seller: const SellerProfile(
-      id: 's1',
+      id: 'd29621f3-3d4c-4376-b1d3-1920ff706f12',
       name: 'Maria R.',
       initials: 'MR',
       rating: 4.9,
@@ -179,7 +179,7 @@ final List<Conversation> sampleConversations = [
   // --- Listing context ---
   Conversation(
     id: 'c1',
-    participantId: 's1',
+    participantId: 'd29621f3-3d4c-4376-b1d3-1920ff706f12',
     participantName: 'Maria R.',
     participantInitials: 'MR',
     participantIsVerified: true,

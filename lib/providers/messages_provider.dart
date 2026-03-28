@@ -7,6 +7,9 @@ class MessagesProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   String? _currentUserId;
+  
+  // Map to track merged conversation relationships: primaryID -> list of all related IDs
+  final Map<String, List<String>> _mergedConversationIds = {};
 
   List<Conversation> get conversations => _conversations;
   bool get isLoading => _isLoading;
@@ -26,6 +29,7 @@ class MessagesProvider extends ChangeNotifier {
       _currentUserId = userId;
       _conversations = [];
       _errorMessage = null;
+      _mergedConversationIds.clear();
     }
   }
 
@@ -45,6 +49,102 @@ class MessagesProvider extends ChangeNotifier {
       final bTime = b.lastMessage?.sentAt ?? DateTime(1970);
       return bTime.compareTo(aTime);
     });
+  }
+
+  /// Merge conversations that are between the same two users for the same listing/context
+  /// This handles the case where two conversations exist between the same participants
+  /// (one from each user's perspective) and combines them into one.
+  List<Conversation> _mergeDuplicateConversations(List<Conversation> conversations) {
+    if (conversations.isEmpty || _currentUserId == null) return conversations;
+
+    // Group conversations by context + related_listing_id since conversations between
+    // the same two users for the same listing should be merged.
+    final byKey = <String, List<Conversation>>{};
+
+    for (final conv in conversations) {
+      // Group by context + listing combination
+      final key = '${conv.context.name}_${conv.relatedListingId ?? 'none'}';
+      
+      if (!byKey.containsKey(key)) {
+        byKey[key] = [];
+      }
+      byKey[key]!.add(conv);
+    }
+
+    // For each group of potential duplicates, merge them
+    final merged = <Conversation>[];
+    for (final entry in byKey.entries) {
+      final group = entry.value;
+      if (group.length == 1) {
+        merged.add(group.first);
+      } else if (group.length > 1) {
+        // Multiple conversations for the same context + listing
+        // This happens when both users have created conversations from their perspective
+        
+        // Sort by latest message to keep the most active one
+        group.sort((a, b) {
+          final aTime = a.lastMessage?.sentAt ?? DateTime(1970);
+          final bTime = b.lastMessage?.sentAt ?? DateTime(1970);
+          return bTime.compareTo(aTime);
+        });
+
+        // Combine all messages from all conversations
+        final allMessages = <ChatMessage>[];
+        for (final conv in group) {
+          allMessages.addAll(conv.messages);
+        }
+        // Sort messages by sent time
+        allMessages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
+
+        // Use the first (most recent) conversation as base, but with merged messages
+        final primary = group.first;
+        
+        // Determine the correct participant ID
+        // The participant should be the OTHER user, not the current user
+        String participantId = primary.participantId;
+        String participantName = primary.participantName;
+        String participantInitials = primary.participantInitials;
+        bool participantIsVerified = primary.participantIsVerified;
+        String? participantPhone = primary.participantPhone;
+        String? participantBarangay = primary.participantBarangay;
+        
+        // If primary's participant is current user, get details from the other conversation
+        if (primary.participantId == _currentUserId) {
+          for (final conv in group) {
+            if (conv.participantId != _currentUserId) {
+              participantId = conv.participantId;
+              participantName = conv.participantName;
+              participantInitials = conv.participantInitials;
+              participantIsVerified = conv.participantIsVerified;
+              participantPhone = conv.participantPhone;
+              participantBarangay = conv.participantBarangay;
+              break;
+            }
+          }
+        }
+        
+        merged.add(Conversation(
+          id: primary.id,
+          participantId: participantId,
+          participantName: participantName,
+          participantInitials: participantInitials,
+          participantIsVerified: participantIsVerified,
+          participantPhone: participantPhone,
+          participantBarangay: participantBarangay,
+          context: primary.context,
+          relatedListingId: primary.relatedListingId,
+          relatedListingTitle: primary.relatedListingTitle,
+          messages: allMessages,
+          isMuted: primary.isMuted,
+        ));
+        
+        // Track all related conversation IDs for this merged conversation
+        final allRelatedIds = group.map((c) => c.id).toList();
+        _mergedConversationIds[primary.id] = allRelatedIds;
+      }
+    }
+
+    return merged;
   }
 
   Conversation _copyConversationWithMessages(
@@ -85,7 +185,8 @@ class MessagesProvider extends ChangeNotifier {
         conversations.add(Conversation.fromMap(convMap, messages));
       }
 
-      _conversations = conversations;
+      // Merge duplicate conversations (same context + listing)
+      _conversations = _mergeDuplicateConversations(conversations);
       _sortConversations();
     } catch (e) {
       _errorMessage = 'Failed to load conversations: ${e.toString()}';
@@ -101,10 +202,25 @@ class MessagesProvider extends ChangeNotifier {
     if (index == -1) return;
 
     try {
-      final msgMaps = await DB.getMessages(conversationId);
-      final refreshedMessages = msgMaps
-          .map((m) => ChatMessage.fromMap(m))
-          .toList();
+      // For merged conversations, we need to check if there are other conversation IDs
+      // with the same context + listing that need to be refreshed too
+      final currentConv = _conversations[index];
+      final allRelatedMessages = <ChatMessage>[];
+      
+      // Get all conversation IDs that share the same context + listing
+      final relatedConvIds = _findRelatedConversationIds(currentConv);
+      
+      // Fetch messages from all related conversations
+      for (final convId in relatedConvIds) {
+        final msgMaps = await DB.getMessages(convId);
+        final msgs = msgMaps.map((m) => ChatMessage.fromMap(m)).toList();
+        allRelatedMessages.addAll(msgs);
+      }
+      
+      // Sort all messages by sent time
+      allRelatedMessages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
+
+      final refreshedMessages = allRelatedMessages;
       final current = _conversations[index];
       final currentLast = current.lastMessage?.id;
       final refreshedLast = refreshedMessages.isNotEmpty
@@ -128,6 +244,18 @@ class MessagesProvider extends ChangeNotifier {
     }
   }
 
+  /// Find all conversation IDs that have the same context + listing as the given conversation
+  /// This is used to support merged conversations
+  List<String> _findRelatedConversationIds(Conversation conv) {
+    // First check if this is a merged conversation
+    if (_mergedConversationIds.containsKey(conv.id)) {
+      return _mergedConversationIds[conv.id]!;
+    }
+    
+    // If not merged, return just this conversation ID
+    return [conv.id];
+  }
+
   /// Get a specific conversation by ID
   Conversation? getConversation(String conversationId) {
     try {
@@ -145,28 +273,76 @@ class MessagesProvider extends ChangeNotifier {
     if (_currentUserId == null) return false;
 
     try {
-      final result = await DB.sendMessage(
-        conversationId: conversationId,
-        senderId: _currentUserId!,
-        text: text,
-      );
-
-      if (result == null) return false;
-
-      final index = _conversations.indexWhere((c) => c.id == conversationId);
-      if (index != -1) {
-        final updatedMessages = List<ChatMessage>.from(
-          _conversations[index].messages,
-        )..add(ChatMessage.fromMap(result));
-
-        _conversations[index] = _copyConversationWithMessages(
-          _conversations[index],
-          updatedMessages,
+      // Check if this is a merged conversation
+      final relatedConvIds = _mergedConversationIds[conversationId];
+      
+      if (relatedConvIds != null && relatedConvIds.length > 1) {
+        // For merged conversations, send to all related IDs
+        // First, send to the primary conversation (which will create the notification)
+        final result = await DB.sendMessage(
+          conversationId: conversationId,
+          senderId: _currentUserId!,
+          text: text,
         );
-        _sortConversations();
-        notifyListeners();
+
+        if (result == null) return false;
+
+        // Then also send to other related conversations (for the other user's perspective)
+        for (final convId in relatedConvIds) {
+          if (convId != conversationId) {
+            await DB.sendMessage(
+              conversationId: convId,
+              senderId: _currentUserId!,
+              text: text,
+            );
+          }
+        }
+
+        // Update local state with messages from all related conversations
+        final allMessages = <ChatMessage>[];
+        for (final convId in relatedConvIds) {
+          final msgMaps = await DB.getMessages(convId);
+          final msgs = msgMaps.map((m) => ChatMessage.fromMap(m)).toList();
+          allMessages.addAll(msgs);
+        }
+        allMessages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
+
+        final index = _conversations.indexWhere((c) => c.id == conversationId);
+        if (index != -1) {
+          _conversations[index] = _copyConversationWithMessages(
+            _conversations[index],
+            allMessages,
+          );
+          _sortConversations();
+          notifyListeners();
+        } else {
+          await loadConversations();
+        }
       } else {
-        await loadConversations();
+        // Regular single conversation
+        final result = await DB.sendMessage(
+          conversationId: conversationId,
+          senderId: _currentUserId!,
+          text: text,
+        );
+
+        if (result == null) return false;
+
+        final index = _conversations.indexWhere((c) => c.id == conversationId);
+        if (index != -1) {
+          final updatedMessages = List<ChatMessage>.from(
+            _conversations[index].messages,
+          )..add(ChatMessage.fromMap(result));
+
+          _conversations[index] = _copyConversationWithMessages(
+            _conversations[index],
+            updatedMessages,
+          );
+          _sortConversations();
+          notifyListeners();
+        } else {
+          await loadConversations();
+        }
       }
 
       return true;
