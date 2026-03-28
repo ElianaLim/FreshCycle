@@ -6,6 +6,7 @@ import 'screens/marketplace_screen.dart';
 import 'screens/profile_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/listing_provider.dart';
+import 'providers/messages_provider.dart';
 import 'screens/pantry_screen.dart';
 import 'data/db.dart';
 
@@ -33,6 +34,7 @@ class FreshCycleApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()..checkSession()),
         ChangeNotifierProvider(create: (_) => ListingProvider()), // Add this
+        ChangeNotifierProvider(create: (_) => MessagesProvider()),
       ],
       child: MaterialApp(
         title: 'FreshCycle',

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/messages.dart';
-import '../data/sample_data.dart';
 import '../theme/app_theme.dart';
+import '../providers/auth_provider.dart';
+import '../providers/messages_provider.dart';
 
 class MessagesScreen extends StatefulWidget {
   const MessagesScreen({super.key});
@@ -20,6 +22,15 @@ class _MessagesScreenState extends State<MessagesScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    
+    // Initialize messages provider with current user
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = context.read<AuthProvider>();
+      final messagesProvider = context.read<MessagesProvider>();
+      if (authProvider.user != null) {
+        messagesProvider.initialize(authProvider.user!.id);
+      }
+    });
   }
 
   @override
@@ -30,7 +41,8 @@ class _MessagesScreenState extends State<MessagesScreen>
   }
 
   List<Conversation> _filtered(ConversationContext ctx) {
-    final all = sampleConversations.where((c) => c.context == ctx).toList();
+    final messagesProvider = context.watch<MessagesProvider>();
+    final all = messagesProvider.conversations.where((c) => c.context == ctx).toList();
     if (_searchQuery.isEmpty) return all;
     final q = _searchQuery.toLowerCase();
     return all.where((c) {
@@ -159,7 +171,13 @@ class _ConversationList extends StatelessWidget {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => _ChatScreen(conversation: conversations[i]),
+            builder: (_) {
+              final authProvider = context.read<AuthProvider>();
+              return _ChatScreen(
+                conversation: conversations[i],
+                currentUserId: authProvider.user?.id ?? '',
+              );
+            },
           ),
         ),
       ),
@@ -379,8 +397,9 @@ class _ContextChip extends StatelessWidget {
 
 class _ChatScreen extends StatefulWidget {
   final Conversation conversation;
+  final String currentUserId;
 
-  const _ChatScreen({required this.conversation});
+  const _ChatScreen({required this.conversation, required this.currentUserId});
 
   @override
   State<_ChatScreen> createState() => _ChatScreenState();
@@ -530,10 +549,19 @@ class _ChatScreenState extends State<_ChatScreen> {
   void _send() {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
+    
+    // Use MessagesProvider to send the message
+    final messagesProvider = context.read<MessagesProvider>();
+    messagesProvider.sendMessage(
+      conversationId: widget.conversation.id,
+      text: text,
+    );
+    
+    // Also add locally for immediate UI feedback
     setState(() {
       _messages.add(ChatMessage(
         id: 'new_${DateTime.now().millisecondsSinceEpoch}',
-        senderId: 'user_001',
+        senderId: widget.currentUserId,
         text: text,
         sentAt: DateTime.now(),
         status: MessageStatus.sent,
@@ -617,7 +645,7 @@ class _ChatScreenState extends State<_ChatScreen> {
               itemCount: _messages.length,
               itemBuilder: (context, i) {
                 final msg = _messages[i];
-                final isMe = msg.senderId == 'user_001';
+                final isMe = msg.senderId == widget.currentUserId;
                 final showDateSeparator = i == 0 ||
                     !_sameDay(_messages[i - 1].sentAt, msg.sentAt);
                 return Column(
