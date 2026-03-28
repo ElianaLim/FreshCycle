@@ -52,7 +52,7 @@ class _MainShellState extends State<MainShell> {
       const _PlaceholderScreen(label: 'Pantry', icon: Icons.kitchen_outlined),
       const _PlaceholderScreen(label: 'Recipes', icon: Icons.restaurant_menu_outlined),
       const MarketplaceScreen(),
-      const _PlaceholderScreen(label: 'Impact', icon: Icons.eco_outlined),
+      const _PlaceholderScreen(label: 'Notifications', icon: Icons.notifications_none_rounded),
       ProfileScreen(
         currentUser: authProvider.user,
         onLogin: () => authProvider.login(),
@@ -100,9 +100,9 @@ class _MainShellState extends State<MainShell> {
                   onTap: () => setState(() => _currentIndex = 2),
                 ),
                 _NavItem(
-                  icon: Icons.eco_outlined,
-                  activeIcon: Icons.eco_rounded,
-                  label: 'Impact',
+                  icon: Icons.notifications_none_rounded,
+                  activeIcon: Icons.notifications_rounded,
+                  label: 'Notifications',
                   isActive: _currentIndex == 3,
                   onTap: () => setState(() => _currentIndex = 3),
                 ),

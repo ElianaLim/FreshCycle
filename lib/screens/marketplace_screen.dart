@@ -180,7 +180,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
               ),
               IconButton(
                 icon: const Icon(
-                  Icons.notifications_none_rounded,
+                  Icons.chat_bubble_outline_rounded,
                   color: FreshCycleTheme.textPrimary,
                 ),
                 onPressed: () {},
