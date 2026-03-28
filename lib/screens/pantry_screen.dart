@@ -16,17 +16,7 @@ class _PantryScreenState extends State<PantryScreen> {
   List<PantryItem> myPantry = [];
   String _selectedCategory = 'All';
 
-  static const List<String> _categories = [
-    'All',
-    'Produce',
-    'Dairy',
-    'Bakery',
-    'Meat & fish',
-    'Meals & leftovers',
-    'Snacks',
-    'Beverages',
-    'Other',
-  ];
+  static List<String> get _categories => FreshCycleTheme.foodCategories;
 
   // Logic to determine urgency based on date
   UrgencyLevel _calculateUrgency(DateTime expiry) {

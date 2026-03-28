@@ -23,17 +23,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
-  final List<String> _sellingCategories = [
-    'All',
-    'Produce',
-    'Dairy',
-    'Bakery',
-    'Meat & fish',
-    'Meals & leftovers',
-    'Snacks',
-    'Beverages',
-    'Other',
-  ];
+  List<String> get _sellingCategories => FreshCycleTheme.foodCategories;
 
   final List<String> _requestCategories = [
     'All',
