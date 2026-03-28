@@ -17,22 +17,37 @@ class NotificationsProvider extends ChangeNotifier {
   List<AppNotification> get unreadNotifications =>
       _notifications.where((n) => !n.isRead).toList();
 
-  /// Initialize the provider with a user ID and load notifications
+  bool _isGuest = false;
+
+  /// Initialize for an authenticated user
   Future<void> initialize(String userId) async {
     _currentUserId = userId;
+    _isGuest = false;
     await loadNotifications();
   }
 
-  /// Load all notifications for the current user
+  /// Initialize for a guest (local storage only)
+  Future<void> initializeGuest() async {
+    _currentUserId = null;
+    _isGuest = true;
+    await loadNotifications();
+  }
+
+  /// Load all notifications (Supabase for auth users, local for guests)
   Future<void> loadNotifications() async {
-    if (_currentUserId == null) return;
+    if (!_isGuest && _currentUserId == null) return;
 
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final notifMaps = await DB.getNotifications(_currentUserId!);
+      List<Map<String, dynamic>> notifMaps;
+      if (_isGuest) {
+        notifMaps = await DB.getGuestNotifications();
+      } else {
+        notifMaps = await DB.getNotifications(_currentUserId!);
+      }
       _notifications = notifMaps.map((n) => AppNotification.fromMap(n)).toList();
       _unreadCount = _notifications.where((n) => !n.isRead).length;
     } catch (e) {
@@ -71,9 +86,13 @@ class NotificationsProvider extends ChangeNotifier {
   /// Mark a single notification as read
   Future<void> markAsRead(String notificationId) async {
     try {
-      await DB.markNotificationAsRead(notificationId);
-      
-      // Update local state
+      if (_isGuest) {
+        final all = await DB.getGuestNotifications();
+        final updated = all.map((n) => n['id'] == notificationId ? {...n, 'is_read': true} : n).toList();
+        await DB.saveGuestNotifications(updated);
+      } else {
+        await DB.markNotificationAsRead(notificationId);
+      }
       final index = _notifications.indexWhere((n) => n.id == notificationId);
       if (index >= 0) {
         _notifications[index] = _notifications[index].copyWith(isRead: true);
@@ -88,15 +107,16 @@ class NotificationsProvider extends ChangeNotifier {
 
   /// Mark all notifications as read
   Future<void> markAllAsRead() async {
-    if (_currentUserId == null) return;
-
     try {
-      await DB.markAllNotificationsAsRead(_currentUserId!);
-      
-      // Update local state
-      _notifications = _notifications
-          .map((n) => n.copyWith(isRead: true))
-          .toList();
+      if (_isGuest) {
+        final all = await DB.getGuestNotifications();
+        final updated = all.map((n) => {...n, 'is_read': true}).toList();
+        await DB.saveGuestNotifications(updated);
+      } else {
+        if (_currentUserId == null) return;
+        await DB.markAllNotificationsAsRead(_currentUserId!);
+      }
+      _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
       _unreadCount = 0;
       notifyListeners();
     } catch (e) {
@@ -108,16 +128,17 @@ class NotificationsProvider extends ChangeNotifier {
   /// Delete a notification
   Future<void> deleteNotification(String notificationId) async {
     try {
-      await DB.deleteNotification(notificationId);
-      
-      // Update local state
+      if (_isGuest) {
+        final all = await DB.getGuestNotifications();
+        await DB.saveGuestNotifications(all.where((n) => n['id'] != notificationId).toList());
+      } else {
+        await DB.deleteNotification(notificationId);
+      }
       final index = _notifications.indexWhere((n) => n.id == notificationId);
       if (index >= 0) {
         final wasUnread = !_notifications[index].isRead;
         _notifications.removeAt(index);
-        if (wasUnread) {
-          _unreadCount = _notifications.where((n) => !n.isRead).length;
-        }
+        if (wasUnread) _unreadCount = _notifications.where((n) => !n.isRead).length;
         notifyListeners();
       }
     } catch (e) {
@@ -128,11 +149,14 @@ class NotificationsProvider extends ChangeNotifier {
 
   /// Clear all notifications
   Future<void> clearAll() async {
-    if (_currentUserId == null) return;
-
     try {
-      for (final notif in _notifications) {
-        await DB.deleteNotification(notif.id);
+      if (_isGuest) {
+        await DB.saveGuestNotifications([]);
+      } else {
+        if (_currentUserId == null) return;
+        for (final notif in _notifications) {
+          await DB.deleteNotification(notif.id);
+        }
       }
       _notifications = [];
       _unreadCount = 0;

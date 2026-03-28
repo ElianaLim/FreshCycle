@@ -31,12 +31,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (authProvider.user != null) {
       notificationsProvider.initialize(authProvider.user!.id);
     } else {
-      // Retry if user not logged in yet
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final auth = context.read<AuthProvider>();
         final notif = context.read<NotificationsProvider>();
         if (auth.user != null) {
           notif.initialize(auth.user!.id);
+        } else {
+          notif.initializeGuest();
         }
       });
     }
@@ -123,7 +124,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   Icon(
                     Icons.notifications_none_rounded,
                     size: 64,
-                    color: FreshCycleTheme.textHint.withOpacity(0.5),
+                    color: FreshCycleTheme.textHint.withValues(alpha: 0.5),
                   ),
                   const SizedBox(height: 16),
                   const Text(
@@ -236,7 +237,7 @@ class _NotificationTile extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          color: n.isRead ? Colors.white : FreshCycleTheme.primaryLight.withOpacity(0.3),
+          color: n.isRead ? Colors.white : FreshCycleTheme.primaryLight.withValues(alpha: 0.3),
           child: Column(
             children: [
               Padding(
@@ -350,6 +351,14 @@ class _NotificationTile extends StatelessWidget {
       case NotificationType.offerAccepted:
         return (Icons.check_circle_rounded, FreshCycleTheme.urgencySafe, FreshCycleTheme.urgencySafeBg);
       case NotificationType.offerRejected:
+        return (Icons.cancel_rounded, FreshCycleTheme.urgencyCritical, FreshCycleTheme.urgencyCriticalBg);
+      case NotificationType.pantryExpiringSoon:
+        return (Icons.warning_amber_rounded, FreshCycleTheme.urgencySoon, FreshCycleTheme.urgencySoonBg);
+      case NotificationType.pantryExpiresTomorrow:
+        return (Icons.warning_amber_rounded, FreshCycleTheme.urgencySoon, FreshCycleTheme.urgencySoonBg);
+      case NotificationType.pantryExpiresToday:
+        return (Icons.warning_rounded, FreshCycleTheme.urgencyCritical, FreshCycleTheme.urgencyCriticalBg);
+      case NotificationType.pantryExpired:
         return (Icons.cancel_rounded, FreshCycleTheme.urgencyCritical, FreshCycleTheme.urgencyCriticalBg);
     }
   }

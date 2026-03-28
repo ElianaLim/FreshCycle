@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
 import '../data/db.dart';
+import '../providers/notifications_provider.dart';
 import '../theme/app_theme.dart';
 import '../models/listing.dart';
 import '../models/pantry_item.dart';
+import '../services/pantry_notification_service.dart';
+import '../services/local_notification_service.dart';
 
 class PantryScreen extends StatefulWidget {
   const PantryScreen({super.key});
@@ -18,6 +22,7 @@ class _PantryScreenState extends State<PantryScreen> {
   String _selectedCategory = 'All';
   bool _isLoading = true;
   String? _deviceId;
+  bool _notifPermissionRequested = false;
 
   static List<String> get _categories => FreshCycleTheme.foodCategories;
 
@@ -61,6 +66,20 @@ class _PantryScreenState extends State<PantryScreen> {
         myPantry = items;
         _isLoading = false;
       });
+      await PantryNotificationService.checkAndNotify(items);
+      if (mounted) {
+        final authUser = DB.getCurrentUser();
+        if (authUser != null) {
+          context.read<NotificationsProvider>().initialize(authUser['id'] as String);
+        } else {
+          context.read<NotificationsProvider>().initializeGuest();
+        }
+      }
+      if (!_notifPermissionRequested) {
+        _notifPermissionRequested = true;
+        await LocalNotificationService.requestPermission();
+      }
+      await LocalNotificationService.schedulePantryNotifications(items);
     } catch (e) {
       debugPrint('Load pantry error: $e');
       setState(() => _isLoading = false);
