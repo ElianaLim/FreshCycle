@@ -382,14 +382,14 @@ class _PantryScreenState extends State<PantryScreen> {
     final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
     final expiry = DateTime(item.computedExpiryDate.year, item.computedExpiryDate.month, item.computedExpiryDate.day);
     final daysLeft = expiry.difference(today).inDays;
-    if (daysLeft <= 1) return Colors.red;
-    if (daysLeft <= 3) return Colors.orange;
-    return FreshCycleTheme.primary;
+    if (daysLeft <= 1) return FreshCycleTheme.urgencyCritical;
+    if (daysLeft <= 3) return FreshCycleTheme.urgencySoon;
+    return FreshCycleTheme.urgencySafe;
   }
 
   double _progressValue(PantryItem item) {
     final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-    final expiry = DateTime(item.expiryDate.year, item.expiryDate.month, item.expiryDate.day);
+    final expiry = DateTime(item.computedExpiryDate.year, item.computedExpiryDate.month, item.computedExpiryDate.day);
     final daysLeft = expiry.difference(today).inDays.clamp(0, 9999);
     return (daysLeft / 7.0).clamp(0.0, 1.0);
   }
@@ -635,7 +635,7 @@ class _PantryScreenState extends State<PantryScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Row(
                 children: [
-                  const Icon(Icons.cancel_outlined, size: 16, color: Colors.red),
+                  const Icon(Icons.cancel_outlined, size: 16, color: FreshCycleTheme.urgencyCritical),
                   const SizedBox(width: 6),
                   const Expanded(
                     child: Text(
@@ -643,7 +643,7 @@ class _PantryScreenState extends State<PantryScreen> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: Colors.red,
+                        color: FreshCycleTheme.urgencyCritical,
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -652,12 +652,12 @@ class _PantryScreenState extends State<PantryScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.red.shade50,
+                      color: FreshCycleTheme.urgencyCriticalBg,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '${expired.length}',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.red),
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: FreshCycleTheme.urgencyCritical),
                     ),
                   ),
                 ],
@@ -680,7 +680,7 @@ class _PantryScreenState extends State<PantryScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange),
+                  const Icon(Icons.warning_amber_rounded, size: 16, color: FreshCycleTheme.urgencySoon),
                   const SizedBox(width: 6),
                   const Expanded(
                     child: Text(
@@ -688,7 +688,7 @@ class _PantryScreenState extends State<PantryScreen> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: Colors.orange,
+                        color: FreshCycleTheme.urgencySoon,
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -697,12 +697,12 @@ class _PantryScreenState extends State<PantryScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
+                      color: FreshCycleTheme.urgencySoonBg,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '${expiring.length}',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.orange),
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: FreshCycleTheme.urgencySoon),
                     ),
                   ),
                 ],
