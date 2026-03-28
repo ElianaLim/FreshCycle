@@ -1,5 +1,3 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 enum MessageStatus { sent, delivered, read }
 
 enum ConversationContext { listing, request }
