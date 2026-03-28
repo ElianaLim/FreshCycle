@@ -36,6 +36,8 @@ class Conversation {
   final String participantName;
   final String participantInitials;
   final bool participantIsVerified;
+  final String? participantPhone;
+  final String? participantBarangay;
   final ConversationContext context;
   final String? relatedListingId;
   final String? relatedListingTitle;
@@ -48,6 +50,8 @@ class Conversation {
     required this.participantName,
     required this.participantInitials,
     required this.participantIsVerified,
+    this.participantPhone,
+    this.participantBarangay,
     required this.context,
     this.relatedListingId,
     this.relatedListingTitle,

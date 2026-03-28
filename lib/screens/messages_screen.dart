@@ -10,43 +10,38 @@ class MessagesScreen extends StatefulWidget {
   State<MessagesScreen> createState() => _MessagesScreenState();
 }
 
-class _MessagesScreenState extends State<MessagesScreen> {
+class _MessagesScreenState extends State<MessagesScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
-  List<Conversation> get _filtered {
-    if (_searchQuery.isEmpty) return sampleConversations;
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<Conversation> _filtered(ConversationContext ctx) {
+    final all = sampleConversations.where((c) => c.context == ctx).toList();
+    if (_searchQuery.isEmpty) return all;
     final q = _searchQuery.toLowerCase();
-    return sampleConversations.where((c) {
+    return all.where((c) {
       return c.participantName.toLowerCase().contains(q) ||
           (c.relatedListingTitle?.toLowerCase().contains(q) ?? false) ||
           (c.lastMessage?.text.toLowerCase().contains(q) ?? false);
     }).toList();
   }
 
-  Map<ConversationContext, List<Conversation>> get _grouped {
-    final map = <ConversationContext, List<Conversation>>{};
-    for (final c in _filtered) {
-      map.putIfAbsent(c.context, () => []).add(c);
-    }
-    return map;
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final grouped = _grouped;
-    // Fixed display order
-    final orderedContexts = [
-      ConversationContext.listing,
-      ConversationContext.request,
-    ].where((ctx) => grouped.containsKey(ctx)).toList();
-
     return Scaffold(
       backgroundColor: FreshCycleTheme.surfaceGray,
       appBar: AppBar(
@@ -62,129 +57,111 @@ class _MessagesScreenState extends State<MessagesScreen> {
             letterSpacing: -0.5,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined,
-                color: FreshCycleTheme.textPrimary),
-            onPressed: () {},
-          ),
-        ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (v) => setState(() => _searchQuery = v),
-              decoration: InputDecoration(
-                hintText: 'Search messages...',
-                prefixIcon: const Icon(Icons.search_rounded,
-                    size: 20, color: FreshCycleTheme.textHint),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      )
-                    : null,
+          preferredSize: const Size.fromHeight(104),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                  decoration: InputDecoration(
+                    hintText: 'Search messages...',
+                    prefixIcon: const Icon(Icons.search_rounded,
+                        size: 20, color: FreshCycleTheme.textHint),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                          )
+                        : null,
+                  ),
+                ),
               ),
-            ),
+              TabBar(
+                controller: _tabController,
+                tabs: const [
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.storefront_rounded, size: 15),
+                        SizedBox(width: 6),
+                        Text('Listings'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.volunteer_activism_rounded, size: 15),
+                        SizedBox(width: 6),
+                        Text('Requests'),
+                      ],
+                    ),
+                  ),
+                ],
+                labelColor: FreshCycleTheme.primary,
+                unselectedLabelColor: FreshCycleTheme.textSecondary,
+                indicatorColor: FreshCycleTheme.primary,
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 13),
+                unselectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.w400, fontSize: 13),
+                dividerColor: FreshCycleTheme.borderColor,
+              ),
+            ],
           ),
         ),
       ),
-      body: orderedContexts.isEmpty
-          ? const Center(
-              child: Text(
-                'No conversations found',
-                style: TextStyle(color: FreshCycleTheme.textSecondary),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.only(bottom: 32),
-              itemCount: orderedContexts.fold<int>(
-                  0, (sum, ctx) => sum + 1 + grouped[ctx]!.length),
-              itemBuilder: (context, index) {
-                int cursor = 0;
-                for (final ctx in orderedContexts) {
-                  final items = grouped[ctx]!;
-                  if (index == cursor) {
-                    return _SectionHeader(context: ctx);
-                  }
-                  cursor++;
-                  for (int i = 0; i < items.length; i++) {
-                    if (index == cursor) {
-                      return _ConversationTile(
-                        conversation: items[i],
-                        isLast: i == items.length - 1,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                _ChatScreen(conversation: items[i]),
-                          ),
-                        ),
-                      );
-                    }
-                    cursor++;
-                  }
-                }
-                return const SizedBox.shrink();
-              },
-            ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _ConversationList(
+            conversations: _filtered(ConversationContext.listing),
+          ),
+          _ConversationList(
+            conversations: _filtered(ConversationContext.request),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ── Section header ────────────────────────────────────────────────────────────
+class _ConversationList extends StatelessWidget {
+  final List<Conversation> conversations;
 
-class _SectionHeader extends StatelessWidget {
-  final ConversationContext context;
-
-  const _SectionHeader({required this.context});
+  const _ConversationList({required this.conversations});
 
   @override
-  Widget build(BuildContext buildContext) {
-    final (label, icon, color, bg) = switch (context) {
-      ConversationContext.listing => (
-          'Near-expiry listings',
-          Icons.storefront_rounded,
-          FreshCycleTheme.primary,
-          FreshCycleTheme.primaryLight,
+  Widget build(BuildContext context) {
+    if (conversations.isEmpty) {
+      return const Center(
+        child: Text(
+          'No conversations found',
+          style: TextStyle(color: FreshCycleTheme.textSecondary),
         ),
-      ConversationContext.request => (
-          'Requests',
-          Icons.volunteer_activism_rounded,
-          FreshCycleTheme.requestColor,
-          FreshCycleTheme.requestBg,
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 32),
+      itemCount: conversations.length,
+      itemBuilder: (context, i) => _ConversationTile(
+        conversation: conversations[i],
+        isLast: i == conversations.length - 1,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _ChatScreen(conversation: conversations[i]),
+          ),
         ),
-    };
-
-    return Container(
-      color: FreshCycleTheme.surfaceGray,
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 14, color: color),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: color,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -427,6 +404,129 @@ class _ChatScreenState extends State<_ChatScreen> {
     super.dispose();
   }
 
+  void _showSellerInfo(BuildContext context, Conversation c) {
+    final avatarIndex =
+        c.participantId.hashCode.abs() % FreshCycleTheme.avatarBgs.length;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: FreshCycleTheme.borderColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Avatar
+            Stack(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: FreshCycleTheme.avatarBgs[avatarIndex],
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    c.participantInitials,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: FreshCycleTheme.avatarFgs[avatarIndex],
+                    ),
+                  ),
+                ),
+                if (c.participantIsVerified)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: FreshCycleTheme.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: const Icon(Icons.check,
+                          size: 11, color: Colors.white),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Name + verified label
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  c.participantName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: FreshCycleTheme.textPrimary,
+                  ),
+                ),
+                if (c.participantIsVerified) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: FreshCycleTheme.primaryLight,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'Verified',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: FreshCycleTheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 20),
+            const Divider(
+                height: 0.5,
+                thickness: 0.5,
+                color: FreshCycleTheme.borderColor),
+            const SizedBox(height: 16),
+            // Contact rows
+            if (c.participantPhone != null)
+              _InfoRow(
+                icon: Icons.phone_outlined,
+                label: 'Phone',
+                value: c.participantPhone!,
+              ),
+            if (c.participantBarangay != null) ...[
+              const SizedBox(height: 12),
+              _InfoRow(
+                icon: Icons.location_on_outlined,
+                label: 'Location',
+                value: c.participantBarangay!,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   void _send() {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
@@ -500,7 +600,7 @@ class _ChatScreenState extends State<_ChatScreen> {
           IconButton(
             icon: const Icon(Icons.more_vert_rounded,
                 color: FreshCycleTheme.textPrimary),
-            onPressed: () {},
+            onPressed: () => _showSellerInfo(context, c),
           ),
         ],
       ),
@@ -703,11 +803,12 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pushIndent = MediaQuery.of(context).size.width * 0.20;
     return Padding(
       padding: EdgeInsets.only(
         bottom: 6,
-        left: isMe ? 48 : 0,
-        right: isMe ? 0 : 48,
+        left: isMe ? pushIndent : 0,
+        right: isMe ? 0 : pushIndent,
       ),
       child: Column(
         crossAxisAlignment:
@@ -776,6 +877,49 @@ class _StatusIcon extends StatelessWidget {
       MessageStatus.read => const Icon(Icons.done_all_rounded,
           size: 12, color: FreshCycleTheme.primary),
     };
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: FreshCycleTheme.textSecondary),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                color: FreshCycleTheme.textHint,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                color: FreshCycleTheme.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
 
