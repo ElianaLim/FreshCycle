@@ -1,4 +1,5 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DB {
@@ -194,6 +195,18 @@ class DB {
     }
   }
   
+  // Returns a stable device ID, generating one on first call
+  static Future<String> getDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    const key = 'device_id';
+    String? id = prefs.getString(key);
+    if (id == null) {
+      id = uuid.v4();
+      await prefs.setString(key, id);
+    }
+    return id;
+  }
+
   static String _getInitials(String name) {
     final parts = name.trim().split(' ');
     if (parts.length >= 2) {

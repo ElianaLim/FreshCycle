@@ -54,6 +54,11 @@ class AuthProvider extends ChangeNotifier {
 
       if (result != null) {
         _user = User.fromMap(result);
+        final deviceId = await DB.getDeviceId();
+        await DB.client.rpc('claim_guest_data', params: {
+          'p_device_id': deviceId,
+          'p_user_id': _user!.id,
+        });
         _isLoading = false;
         notifyListeners();
         return true;
@@ -88,6 +93,11 @@ class AuthProvider extends ChangeNotifier {
 
       if (result != null) {
         _user = User.fromMap(result);
+        final deviceId = await DB.getDeviceId();
+        await DB.client.rpc('claim_guest_data', params: {
+          'p_device_id': deviceId,
+          'p_user_id': _user!.id,
+        });
         _isLoading = false;
         notifyListeners();
         return true;

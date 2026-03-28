@@ -5,6 +5,7 @@ enum ExpiryType { absolute, relative }
 
 class PantryItem {
   final String id;
+  final String deviceId;
   String name;
   String category;
   DateTime expiryDate;
@@ -15,6 +16,7 @@ class PantryItem {
 
   PantryItem({
     required this.id,
+    required this.deviceId,
     required this.name,
     required this.category,
     required this.expiryDate,
@@ -61,6 +63,55 @@ class PantryItem {
         return Icons.local_drink_outlined;
       default:
         return Icons.inventory_2_outlined;
+    }
+  }
+
+  /// Build from a Supabase row map.
+  factory PantryItem.fromMap(Map<String, dynamic> map) {
+    final expiryTypeStr = map['expiry_type'] as String? ?? 'absolute';
+    final expiryType = expiryTypeStr == 'relative' ? ExpiryType.relative : ExpiryType.absolute;
+
+    final urgencyStr = map['urgency'] as String? ?? 'safe';
+    final urgency = _urgencyFromString(urgencyStr);
+
+    return PantryItem(
+      id: map['id'] as String,
+      deviceId: map['device_id'] as String,
+      name: map['name'] as String,
+      category: map['category'] as String? ?? 'Other',
+      expiryDate: DateTime.parse(map['expiry_date'] as String),
+      relativeDays: map['relative_days'] as int? ?? 7,
+      expiryType: expiryType,
+      cost: (map['cost'] as num?)?.toDouble(),
+      urgency: urgency,
+    );
+  }
+
+  /// Convert to a map for Supabase insert/update.
+  /// Pass [userId] when the user is authenticated; leave null for guests.
+  Map<String, dynamic> toMap({String? userId}) {
+    return {
+      'id': id,
+      'device_id': deviceId,
+      if (userId != null) 'user_id': userId,
+      'name': name,
+      'category': category,
+      'expiry_type': expiryType == ExpiryType.relative ? 'relative' : 'absolute',
+      'relative_days': relativeDays,
+      'expiry_date': computedExpiryDate.toIso8601String(),
+      'cost': cost,
+      // urgency is computed by the DB trigger — no need to send it
+    };
+  }
+
+  static UrgencyLevel _urgencyFromString(String s) {
+    switch (s) {
+      case 'critical':
+        return UrgencyLevel.critical;
+      case 'soon':
+        return UrgencyLevel.soon;
+      default:
+        return UrgencyLevel.safe;
     }
   }
 }
