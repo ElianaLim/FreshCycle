@@ -1,6 +1,5 @@
+import 'package:flutter/material.dart';
 import '../models/listing.dart';
-
-enum FoodType { perishable, nonPerishable }
 
 enum ExpiryType { absolute, relative }
 
@@ -11,7 +10,6 @@ class PantryItem {
   DateTime expiryDate;
   int relativeDays;
   ExpiryType expiryType;
-  FoodType foodType;
   double? cost;
   UrgencyLevel urgency;
 
@@ -22,7 +20,6 @@ class PantryItem {
     required this.expiryDate,
     this.relativeDays = 7,
     this.expiryType = ExpiryType.absolute,
-    required this.foodType,
     this.cost,
     required this.urgency,
   });
@@ -44,5 +41,26 @@ class PantryItem {
     if (diff == 0) return 'Expires today';
     if (diff == 1) return 'Expires tomorrow';
     return '$diff days left';
+  }
+
+  IconData get categoryIcon {
+    switch (category) {
+      case 'Produce':
+        return Icons.eco_outlined;
+      case 'Dairy':
+        return Icons.egg_outlined;
+      case 'Bakery':
+        return Icons.bakery_dining_outlined;
+      case 'Meat & fish':
+        return Icons.set_meal_outlined;
+      case 'Meals & leftovers':
+        return Icons.lunch_dining_outlined;
+      case 'Snacks':
+        return Icons.cookie_outlined;
+      case 'Beverages':
+        return Icons.local_drink_outlined;
+      default:
+        return Icons.inventory_2_outlined;
+    }
   }
 }

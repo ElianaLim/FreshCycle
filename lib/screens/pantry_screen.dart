@@ -13,8 +13,20 @@ class PantryScreen extends StatefulWidget {
 }
 
 class _PantryScreenState extends State<PantryScreen> {
-  // 2. Empty initial pantry
   List<PantryItem> myPantry = [];
+  String _selectedCategory = 'All';
+
+  static const List<String> _categories = [
+    'All',
+    'Produce',
+    'Dairy',
+    'Bakery',
+    'Meat & fish',
+    'Meals & leftovers',
+    'Snacks',
+    'Beverages',
+    'Other',
+  ];
 
   // Logic to determine urgency based on date
   UrgencyLevel _calculateUrgency(DateTime expiry) {
@@ -46,13 +58,7 @@ class _PantryScreenState extends State<PantryScreen> {
       int dateCompare = a.computedExpiryDate.compareTo(b.computedExpiryDate);
       if (dateCompare != 0) return dateCompare;
 
-      // 2. Break ties with Food Type (Perishable first)
-      // Since FoodType.perishable is index 0 and nonPerishable is index 1, 
-      // comparing indices puts perishable first.
-      int typeCompare = a.foodType.index.compareTo(b.foodType.index);
-      if (typeCompare != 0) return typeCompare;
-
-      // 3. Final tie-breaker: Alphabetical by Name
+      // 2. Final tie-breaker: Alphabetical by Name
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
   }
@@ -69,7 +75,9 @@ class _PantryScreenState extends State<PantryScreen> {
     
     // Default to 7 days from now if not editing
     DateTime selectedDate = existingItem?.expiryDate ?? DateTime.now().add(const Duration(days: 7));
-    FoodType selectedType = existingItem?.foodType ?? FoodType.perishable;
+    String selectedCategory = (existingItem != null && _categories.contains(existingItem.category))
+        ? existingItem.category
+        : 'Other';
     ExpiryType selectedExpiryType = existingItem != null ? existingItem.expiryType : ExpiryType.absolute;
     int selectedRelativeDays = existingItem != null ? existingItem.relativeDays : 7;
 
@@ -133,40 +141,30 @@ class _PantryScreenState extends State<PantryScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
-                // Type & Cost Row
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: DropdownButtonFormField<FoodType>(
-                        value: selectedType,
-                        decoration: const InputDecoration(labelText: 'Type'),
-                        items: const [
-                          DropdownMenuItem(value: FoodType.perishable, child: Text('Perishable')),
-                          DropdownMenuItem(value: FoodType.nonPerishable, child: Text('Non-perishable')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) {
-                            setSheetState(() => selectedType = v);
-                          }
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: TextField(
-                        controller: costController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: 'Cost',
-                          prefixText: '₱ ',
-                          hintText: '0.00',
-                        ),
-                      ),
-                    ),
-                  ],
+
+                // Category
+                DropdownButtonFormField<String>(
+                  initialValue: selectedCategory,
+                  decoration: const InputDecoration(labelText: 'Category'),
+                  items: _categories
+                      .where((c) => c != 'All')
+                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) setSheetState(() => selectedCategory = v);
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Cost
+                TextField(
+                  controller: costController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Cost',
+                    prefixText: '₱ ',
+                    hintText: '0.00',
+                  ),
                 ),
                 const SizedBox(height: 16),
                 
@@ -352,11 +350,10 @@ class _PantryScreenState extends State<PantryScreen> {
                       final newItem = PantryItem(
                         id: isEditing ? existingItem.id : DateTime.now().millisecondsSinceEpoch.toString(),
                         name: nameController.text.trim(),
-                        category: selectedType == FoodType.perishable ? "Perishable" : "Non-perishable",
+                        category: selectedCategory,
                         expiryDate: selectedDate,
                         relativeDays: selectedRelativeDays,
                         expiryType: selectedExpiryType,
-                        foodType: selectedType,
                         cost: double.tryParse(costController.text),
                         urgency: urgency,
                       );
@@ -437,7 +434,7 @@ class _PantryScreenState extends State<PantryScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  item.foodType == FoodType.perishable ? Icons.eco_outlined : Icons.inventory_2_outlined,
+                  item.categoryIcon,
                   size: 18,
                   color: urgencyColor(item.urgency),
                 ),
@@ -538,7 +535,7 @@ class _PantryScreenState extends State<PantryScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
-                item.foodType == FoodType.perishable ? Icons.eco_outlined : Icons.inventory_2_outlined,
+                item.categoryIcon,
                 color: urgencyColor(item.urgency),
               ),
             ),
@@ -561,7 +558,7 @@ class _PantryScreenState extends State<PantryScreen> {
                   ),
                   const Text(" • ", style: TextStyle(color: FreshCycleTheme.textHint)),
                   Text(
-                    item.foodType == FoodType.perishable ? 'Perishable' : 'Non-perishable',
+                    item.category,
                     style: const TextStyle(color: FreshCycleTheme.textSecondary, fontSize: 12),
                   ),
                 ],
@@ -635,9 +632,10 @@ class _PantryScreenState extends State<PantryScreen> {
         .where((i) => i.urgency == UrgencyLevel.critical || i.urgency == UrgencyLevel.soon)
         .where((i) => !expired.contains(i))
         .toList();
-    final rest = myPantry
-        .where((i) => i.urgency == UrgencyLevel.safe)
-        .toList();
+    final allRest = myPantry.toList();
+    final rest = _selectedCategory == 'All'
+        ? allRest
+        : allRest.where((i) => i.category == _selectedCategory).toList();
 
     return CustomScrollView(
       slivers: [
@@ -733,12 +731,12 @@ class _PantryScreenState extends State<PantryScreen> {
             ),
           ),
         ],
-        if (rest.isNotEmpty) ...[
+        if (allRest.isNotEmpty) ...[
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(16, expiring.isEmpty ? 16 : 8, 16, 8),
+              padding: EdgeInsets.fromLTRB(16, expiring.isEmpty && expired.isEmpty ? 16 : 8, 16, 6),
               child: const Text(
-                'Other Items',
+                'All Items',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -748,15 +746,66 @@ class _PantryScreenState extends State<PantryScreen> {
               ),
             ),
           ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, i) => _buildItemCard(rest[i], myPantry.indexOf(rest[i])),
-                childCount: rest.length,
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 36,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _categories.length,
+                itemBuilder: (context, i) {
+                  final cat = _categories[i];
+                  final isSelected = _selectedCategory == cat;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedCategory = cat),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: isSelected ? FreshCycleTheme.primary : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected ? FreshCycleTheme.primary : FreshCycleTheme.borderColor,
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Text(
+                          cat,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: isSelected ? Colors.white : FreshCycleTheme.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ),
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          if (rest.isNotEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) => _buildItemCard(rest[i], myPantry.indexOf(rest[i])),
+                  childCount: rest.length,
+                ),
+              ),
+            )
+          else
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                child: Text(
+                  'No items in "$_selectedCategory"',
+                  style: const TextStyle(color: FreshCycleTheme.textHint, fontSize: 13),
+                ),
+              ),
+            ),
         ],
         if (rest.isEmpty)
           const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
