@@ -1,12 +1,19 @@
+// lib/screens/messages_screen.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/messages.dart';
 import '../theme/app_theme.dart';
 import '../providers/auth_provider.dart';
+import '../providers/listing_provider.dart';
 import '../providers/messages_provider.dart';
+import 'listing_detail_screen.dart';
 
 class MessagesScreen extends StatefulWidget {
-  const MessagesScreen({super.key});
+  final String? initialConversationId;
+
+  const MessagesScreen({super.key, this.initialConversationId});
 
   @override
   State<MessagesScreen> createState() => _MessagesScreenState();
@@ -17,19 +24,60 @@ class _MessagesScreenState extends State<MessagesScreen>
   late TabController _tabController;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  bool _openedInitialConversation = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    
+
     // Initialize messages provider with current user
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = context.read<AuthProvider>();
       final messagesProvider = context.read<MessagesProvider>();
       if (authProvider.user != null) {
-        messagesProvider.initialize(authProvider.user!.id);
+        messagesProvider.initialize(authProvider.user!.id).then((_) {
+          _openInitialConversationIfNeeded();
+        });
       }
+    });
+  }
+
+  void _openInitialConversationIfNeeded() {
+    if (_openedInitialConversation) return;
+    final initialId = widget.initialConversationId;
+    if (initialId == null || initialId.isEmpty) return;
+
+    // Ensure we don't navigate during build phase
+    if (!mounted) return;
+
+    final messagesProvider = Provider.of<MessagesProvider>(
+      context,
+      listen: false,
+    );
+    Conversation? conversation;
+    try {
+      conversation = messagesProvider.conversations.firstWhere(
+        (c) => c.id == initialId,
+      );
+    } catch (_) {
+      conversation = null;
+    }
+
+    if (conversation == null) return;
+    _openedInitialConversation = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            conversation: conversation!,
+            currentUserId: context.read<AuthProvider>().user?.id ?? '',
+          ),
+        ),
+      );
     });
   }
 
@@ -42,7 +90,9 @@ class _MessagesScreenState extends State<MessagesScreen>
 
   List<Conversation> _filtered(ConversationContext ctx) {
     final messagesProvider = context.watch<MessagesProvider>();
-    final all = messagesProvider.conversations.where((c) => c.context == ctx).toList();
+    final all = messagesProvider.conversations
+        .where((c) => c.context == ctx)
+        .toList();
     if (_searchQuery.isEmpty) return all;
     final q = _searchQuery.toLowerCase();
     return all.where((c) {
@@ -80,8 +130,11 @@ class _MessagesScreenState extends State<MessagesScreen>
                   onChanged: (v) => setState(() => _searchQuery = v),
                   decoration: InputDecoration(
                     hintText: 'Search messages...',
-                    prefixIcon: const Icon(Icons.search_rounded,
-                        size: 20, color: FreshCycleTheme.textHint),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      size: 20,
+                      color: FreshCycleTheme.textHint,
+                    ),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.close_rounded, size: 18),
@@ -123,9 +176,13 @@ class _MessagesScreenState extends State<MessagesScreen>
                 indicatorColor: FreshCycleTheme.primary,
                 indicatorSize: TabBarIndicatorSize.tab,
                 labelStyle: const TextStyle(
-                    fontWeight: FontWeight.w600, fontSize: 13),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
                 unselectedLabelStyle: const TextStyle(
-                    fontWeight: FontWeight.w400, fontSize: 13),
+                  fontWeight: FontWeight.w400,
+                  fontSize: 13,
+                ),
                 dividerColor: FreshCycleTheme.borderColor,
               ),
             ],
@@ -173,7 +230,7 @@ class _ConversationList extends StatelessWidget {
           MaterialPageRoute(
             builder: (_) {
               final authProvider = context.read<AuthProvider>();
-              return _ChatScreen(
+              return ChatScreen(
                 conversation: conversations[i],
                 currentUserId: authProvider.user?.id ?? '',
               );
@@ -201,8 +258,8 @@ class _ConversationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = conversation;
-    final avatarIndex = c.participantId.hashCode.abs() %
-        FreshCycleTheme.avatarBgs.length;
+    final avatarIndex =
+        c.participantId.hashCode.abs() % FreshCycleTheme.avatarBgs.length;
 
     return GestureDetector(
       onTap: onTap,
@@ -245,11 +302,16 @@ class _ConversationTile extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: FreshCycleTheme.primary,
                               shape: BoxShape.circle,
-                              border:
-                                  Border.all(color: Colors.white, width: 1.5),
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
                             ),
-                            child: const Icon(Icons.check,
-                                size: 8, color: Colors.white),
+                            child: const Icon(
+                              Icons.check,
+                              size: 8,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                     ],
@@ -318,7 +380,9 @@ class _ConversationTile extends StatelessWidget {
                               Container(
                                 margin: const EdgeInsets.only(left: 8),
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: FreshCycleTheme.primary,
                                   borderRadius: BorderRadius.circular(10),
@@ -364,13 +428,13 @@ class _ContextChip extends StatelessWidget {
   Widget build(BuildContext buildContext) {
     final (color, bg) = switch (context) {
       ConversationContext.listing => (
-          FreshCycleTheme.primary,
-          FreshCycleTheme.primaryLight
-        ),
+        FreshCycleTheme.primary,
+        FreshCycleTheme.primaryLight,
+      ),
       ConversationContext.request => (
-          FreshCycleTheme.requestColor,
-          FreshCycleTheme.requestBg
-        ),
+        FreshCycleTheme.requestColor,
+        FreshCycleTheme.requestBg,
+      ),
     };
 
     return Container(
@@ -395,193 +459,269 @@ class _ContextChip extends StatelessWidget {
 
 // ── Chat detail screen ────────────────────────────────────────────────────────
 
-class _ChatScreen extends StatefulWidget {
+class ChatScreen extends StatefulWidget {
   final Conversation conversation;
   final String currentUserId;
+  final bool showListingPreview;
+  final List<String> quickQuestions;
 
-  const _ChatScreen({required this.conversation, required this.currentUserId});
+  const ChatScreen({
+    super.key,
+    required this.conversation,
+    required this.currentUserId,
+    this.showListingPreview = false,
+    this.quickQuestions = const [],
+  });
 
   @override
-  State<_ChatScreen> createState() => _ChatScreenState();
+  State<ChatScreen> createState() => ChatScreenState();
 }
 
-class _ChatScreenState extends State<_ChatScreen> {
+class ChatScreenState extends State<ChatScreen> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late List<ChatMessage> _messages;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _messages = List.from(widget.conversation.messages);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final messagesProvider = context.read<MessagesProvider>();
+      messagesProvider.markAsRead(widget.conversation.id);
+      messagesProvider.refreshConversation(widget.conversation.id);
+    });
+
+    // Lightweight polling for incoming messages in active chat.
+    _refreshTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted) return;
+      context.read<MessagesProvider>().refreshConversation(
+        widget.conversation.id,
+      );
+    });
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _showSellerInfo(BuildContext context, Conversation c) {
-    final avatarIndex =
-        c.participantId.hashCode.abs() % FreshCycleTheme.avatarBgs.length;
+  void _sendMessage() async {
+    if (_inputController.text.trim().isEmpty) return;
+    final text = _inputController.text.trim();
+    _inputController.clear();
 
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: FreshCycleTheme.borderColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            // Avatar
-            Stack(
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: FreshCycleTheme.avatarBgs[avatarIndex],
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    c.participantInitials,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: FreshCycleTheme.avatarFgs[avatarIndex],
-                    ),
-                  ),
+    final messagesProvider = context.read<MessagesProvider>();
+    final success = await messagesProvider.sendMessage(
+      conversationId: widget.conversation.id,
+      text: text,
+    );
+
+    if (success && mounted) {
+      final updated = messagesProvider.getConversation(widget.conversation.id);
+      if (updated != null) {
+        setState(() {
+          _messages = List.from(updated.messages);
+        });
+        _scrollToBottom();
+      }
+    }
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  void _openRelatedListing() {
+    final c = widget.conversation;
+    final listingId = c.relatedListingId;
+    if (listingId == null) return;
+
+    final listingProvider = context.read<ListingProvider>();
+    try {
+      final listing = listingProvider.listings.firstWhere(
+        (l) => l.id == listingId,
+      );
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ListingDetailScreen(listing: listing),
+        ),
+      );
+    } catch (_) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Listing not available')));
+    }
+  }
+
+  Widget _buildListingPreviewTile() {
+    final c = widget.conversation;
+    if (!widget.showListingPreview || c.relatedListingTitle == null) {
+      return const SizedBox.shrink();
+    }
+
+    final listing = context.watch<ListingProvider>().listings.where(
+      (l) => l.id == c.relatedListingId,
+    );
+    final resolved = listing.isNotEmpty ? listing.first : null;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      child: InkWell(
+        onTap: _openRelatedListing,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: FreshCycleTheme.surfaceGray,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                if (c.participantIsVerified)
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: FreshCycleTheme.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                child:
+                    (resolved?.images != null && resolved!.images!.isNotEmpty)
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          resolved.images!.first,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.inventory_2_outlined,
+                            color: FreshCycleTheme.textHint,
+                          ),
+                        ),
+                      )
+                    : const Icon(
+                        Icons.inventory_2_outlined,
+                        color: FreshCycleTheme.textHint,
                       ),
-                      child: const Icon(Icons.check,
-                          size: 11, color: Colors.white),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Name + verified label
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  c.participantName,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: FreshCycleTheme.textPrimary,
-                  ),
-                ),
-                if (c.participantIsVerified) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: FreshCycleTheme.primaryLight,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'Verified',
-                      style: TextStyle(
-                        fontSize: 11,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      c.relatedListingTitle!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: FreshCycleTheme.primary,
+                        color: FreshCycleTheme.textPrimary,
                       ),
                     ),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 20),
-            const Divider(
-                height: 0.5,
-                thickness: 0.5,
-                color: FreshCycleTheme.borderColor),
-            const SizedBox(height: 16),
-            // Contact rows
-            if (c.participantPhone != null)
-              _InfoRow(
-                icon: Icons.phone_outlined,
-                label: 'Phone',
-                value: c.participantPhone!,
+                    const SizedBox(height: 2),
+                    Text(
+                      resolved?.price != null
+                          ? '₱${resolved!.price!.toStringAsFixed(0)}'
+                          : 'Tap to view details',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: FreshCycleTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            if (c.participantBarangay != null) ...[
-              const SizedBox(height: 12),
-              _InfoRow(
-                icon: Icons.location_on_outlined,
-                label: 'Location',
-                value: c.participantBarangay!,
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: FreshCycleTheme.textHint,
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 
-  void _send() {
-    final text = _inputController.text.trim();
-    if (text.isEmpty) return;
-    
-    // Use MessagesProvider to send the message
-    final messagesProvider = context.read<MessagesProvider>();
-    messagesProvider.sendMessage(
-      conversationId: widget.conversation.id,
-      text: text,
+  Widget _buildQuickQuestions() {
+    if (widget.quickQuestions.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: widget.quickQuestions
+              .map(
+                (q) => Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ActionChip(
+                    label: Text(q, style: const TextStyle(fontSize: 12)),
+                    backgroundColor: FreshCycleTheme.primaryLight,
+                    side: const BorderSide(
+                      color: FreshCycleTheme.primary,
+                      width: 0.5,
+                    ),
+                    onPressed: () async {
+                      _inputController.text = q;
+                      await Future<void>.delayed(
+                        const Duration(milliseconds: 1),
+                      );
+                      _sendMessage();
+                    },
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ),
     );
-    
-    // Also add locally for immediate UI feedback
-    setState(() {
-      _messages.add(ChatMessage(
-        id: 'new_${DateTime.now().millisecondsSinceEpoch}',
-        senderId: widget.currentUserId,
-        text: text,
-        sentAt: DateTime.now(),
-        status: MessageStatus.sent,
-      ));
-      _inputController.clear();
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
-        );
-      }
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     final c = widget.conversation;
+    final isListingChat = c.context == ConversationContext.listing;
+    final messagesProvider = context.watch<MessagesProvider>();
+    final updatedConv = messagesProvider.getConversation(c.id);
+
+    final hasNewMessages =
+        updatedConv != null && updatedConv.messages.length > _messages.length;
+    final currentLastId = _messages.isNotEmpty ? _messages.last.id : null;
+    final hasMessageChanges =
+        updatedConv != null &&
+        (updatedConv.messages.length != _messages.length ||
+            (updatedConv.lastMessage?.id != currentLastId));
+
+    if (hasMessageChanges) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _messages = List.from(updatedConv.messages);
+          });
+          if (hasNewMessages) {
+            _scrollToBottom();
+          }
+        }
+      });
+    }
+
+    final avatarIndex =
+        c.participantId.hashCode.abs() % FreshCycleTheme.avatarBgs.length;
 
     return Scaffold(
       backgroundColor: FreshCycleTheme.surfaceGray,
@@ -590,11 +730,16 @@ class _ChatScreenState extends State<_ChatScreen> {
         titleSpacing: 0,
         title: Row(
           children: [
-            const SizedBox(width: 4),
-            _MiniAvatar(
-              initials: c.participantInitials,
-              participantId: c.participantId,
-              isVerified: c.participantIsVerified,
+            CircleAvatar(
+              backgroundColor: FreshCycleTheme.avatarBgs[avatarIndex],
+              child: Text(
+                c.participantInitials,
+                style: TextStyle(
+                  color: FreshCycleTheme.avatarFgs[avatarIndex],
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -602,397 +747,165 @@ class _ChatScreenState extends State<_ChatScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    c.participantName,
+                    isListingChat
+                        ? (c.relatedListingTitle ?? 'Listing chat')
+                        : c.participantName,
                     style: const TextStyle(
-                      fontSize: 15,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: FreshCycleTheme.textPrimary,
                     ),
                   ),
                   if (c.relatedListingTitle != null)
+                    GestureDetector(
+                      onTap: _openRelatedListing,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.open_in_new_rounded,
+                            size: 12,
+                            color: FreshCycleTheme.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'View listing details',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: FreshCycleTheme.primary,
+                                decoration: TextDecoration.underline,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (isListingChat)
+                    const Text(
+                      'Listing chat',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: FreshCycleTheme.textSecondary,
+                      ),
+                    ),
+                  if (!isListingChat && c.relatedListingTitle != null)
                     Text(
-                      c.relatedListingTitle!,
+                      'Re: ${c.relatedListingTitle}',
                       style: const TextStyle(
                         fontSize: 11,
                         color: FreshCycleTheme.textSecondary,
-                        fontWeight: FontWeight.w400,
+                        height: 1.2,
                       ),
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                 ],
               ),
             ),
+            const SizedBox(width: 16),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert_rounded,
-                color: FreshCycleTheme.textPrimary),
-            onPressed: () => _showSellerInfo(context, c),
-          ),
-        ],
       ),
       body: Column(
         children: [
-          // Context banner
-          if (c.relatedListingTitle != null)
-            _ContextBanner(conversation: c),
-          // Messages
+          _buildListingPreviewTile(),
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              reverse: true, // Show newest at the bottom
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               itemCount: _messages.length,
-              itemBuilder: (context, i) {
-                final msg = _messages[i];
+              itemBuilder: (context, index) {
+                final msg = _messages[_messages.length - 1 - index];
                 final isMe = msg.senderId == widget.currentUserId;
-                final showDateSeparator = i == 0 ||
-                    !_sameDay(_messages[i - 1].sentAt, msg.sentAt);
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (showDateSeparator) _DateSeparator(date: msg.sentAt),
-                    _MessageBubble(message: msg, isMe: isMe),
-                  ],
-                );
+                return _buildMessageBubble(msg, isMe);
               },
             ),
           ),
-          // Input bar
-          _InputBar(
-            controller: _inputController,
-            onSend: _send,
-          ),
+          _buildMessageInput(),
         ],
       ),
     );
   }
 
-  bool _sameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
-}
-
-class _MiniAvatar extends StatelessWidget {
-  final String initials;
-  final String participantId;
-  final bool isVerified;
-
-  const _MiniAvatar({
-    required this.initials,
-    required this.participantId,
-    required this.isVerified,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final idx =
-        participantId.hashCode.abs() % FreshCycleTheme.avatarBgs.length;
-    return Stack(
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: FreshCycleTheme.avatarBgs[idx],
-            shape: BoxShape.circle,
+  Widget _buildMessageBubble(ChatMessage msg, bool isMe) {
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        decoration: BoxDecoration(
+          color: isMe ? FreshCycleTheme.primary : Colors.white,
+          borderRadius: BorderRadius.circular(20).copyWith(
+            bottomRight: isMe
+                ? const Radius.circular(4)
+                : const Radius.circular(20),
+            bottomLeft: !isMe
+                ? const Radius.circular(4)
+                : const Radius.circular(20),
           ),
-          alignment: Alignment.center,
-          child: Text(
-            initials,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: FreshCycleTheme.avatarFgs[idx],
-            ),
+          border: isMe ? null : Border.all(color: FreshCycleTheme.borderColor),
+        ),
+        child: Text(
+          msg.text,
+          style: TextStyle(
+            color: isMe ? Colors.white : FreshCycleTheme.textPrimary,
           ),
         ),
-        if (isVerified)
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: FreshCycleTheme.primary,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 1.5),
-              ),
-              child: const Icon(Icons.check, size: 7, color: Colors.white),
-            ),
-          ),
-      ],
+      ),
     );
   }
-}
 
-class _ContextBanner extends StatelessWidget {
-  final Conversation conversation;
-
-  const _ContextBanner({required this.conversation});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = conversation;
-    final (icon, color, bg, prefix) = switch (c.context) {
-      ConversationContext.listing => (
-          Icons.storefront_rounded,
-          FreshCycleTheme.primary,
-          FreshCycleTheme.primaryLight,
-          'Listing',
-        ),
-      ConversationContext.request => (
-          Icons.volunteer_activism_rounded,
-          FreshCycleTheme.requestColor,
-          FreshCycleTheme.requestBg,
-          'Request',
-        ),
-    };
-
+  Widget _buildMessageInput() {
     return Container(
-      width: double.infinity,
-      color: bg,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 6),
-          Text(
-            '$prefix · ',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              c.relatedListingTitle!,
-              style: TextStyle(
-                fontSize: 12,
-                color: color,
-                fontWeight: FontWeight.w400,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DateSeparator extends StatelessWidget {
-  final DateTime date;
-
-  const _DateSeparator({required this.date});
-
-  String get _label {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final d = DateTime(date.year, date.month, date.day);
-    final diff = today.difference(d).inDays;
-    if (diff == 0) return 'Today';
-    if (diff == 1) return 'Yesterday';
-    return '${date.month}/${date.day}/${date.year}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          const Expanded(
-              child: Divider(color: FreshCycleTheme.borderColor, thickness: 0.5)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Text(
-              _label,
-              style: const TextStyle(
-                fontSize: 11,
-                color: FreshCycleTheme.textHint,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          const Expanded(
-              child: Divider(color: FreshCycleTheme.borderColor, thickness: 0.5)),
-        ],
-      ),
-    );
-  }
-}
-
-class _MessageBubble extends StatelessWidget {
-  final ChatMessage message;
-  final bool isMe;
-
-  const _MessageBubble({required this.message, required this.isMe});
-
-  @override
-  Widget build(BuildContext context) {
-    final pushIndent = MediaQuery.of(context).size.width * 0.20;
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: 6,
-        left: isMe ? pushIndent : 0,
-        right: isMe ? 0 : pushIndent,
-      ),
+      padding: const EdgeInsets.all(
+        16,
+      ).copyWith(bottom: MediaQuery.of(context).padding.bottom + 16),
+      color: Colors.white,
       child: Column(
-        crossAxisAlignment:
-            isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-            decoration: BoxDecoration(
-              color: isMe ? FreshCycleTheme.primary : Colors.white,
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(16),
-                topRight: const Radius.circular(16),
-                bottomLeft: Radius.circular(isMe ? 16 : 4),
-                bottomRight: Radius.circular(isMe ? 4 : 16),
-              ),
-              border: isMe
-                  ? null
-                  : Border.all(
-                      color: FreshCycleTheme.borderColor, width: 0.5),
-            ),
-            child: Text(
-              message.text,
-              style: TextStyle(
-                fontSize: 14,
-                color:
-                    isMe ? Colors.white : FreshCycleTheme.textPrimary,
-                height: 1.4,
-              ),
-            ),
-          ),
-          const SizedBox(height: 3),
+          _buildQuickQuestions(),
           Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                message.timeLabel,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: FreshCycleTheme.textHint,
+              Expanded(
+                child: TextField(
+                  controller: _inputController,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _sendMessage(),
+                  decoration: InputDecoration(
+                    hintText: 'Type a message...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    fillColor: FreshCycleTheme.surfaceGray,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                  ),
                 ),
               ),
-              if (isMe) ...[
-                const SizedBox(width: 4),
-                _StatusIcon(status: message.status),
-              ],
+              const SizedBox(width: 8),
+              CircleAvatar(
+                backgroundColor: FreshCycleTheme.primary,
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.send_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  onPressed: _sendMessage,
+                ),
+              ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusIcon extends StatelessWidget {
-  final MessageStatus status;
-
-  const _StatusIcon({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    return switch (status) {
-      MessageStatus.sent => const Icon(Icons.check_rounded,
-          size: 12, color: FreshCycleTheme.textHint),
-      MessageStatus.delivered => const Icon(Icons.done_all_rounded,
-          size: 12, color: FreshCycleTheme.textHint),
-      MessageStatus.read => const Icon(Icons.done_all_rounded,
-          size: 12, color: FreshCycleTheme.primary),
-    };
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _InfoRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: FreshCycleTheme.textSecondary),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                color: FreshCycleTheme.textHint,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                color: FreshCycleTheme.textPrimary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _InputBar extends StatelessWidget {
-  final TextEditingController controller;
-  final VoidCallback onSend;
-
-  const _InputBar({required this.controller, required this.onSend});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 10,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 12,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                hintText: 'Write a message...',
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              ),
-              onSubmitted: (_) => onSend(),
-            ),
-          ),
-          const SizedBox(width: 10),
-          FilledButton(
-            onPressed: onSend,
-            style: FilledButton.styleFrom(
-              backgroundColor: FreshCycleTheme.primary,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.all(14),
-              minimumSize: Size.zero,
-            ),
-            child: const Icon(Icons.send_rounded, size: 18, color: Colors.white),
           ),
         ],
       ),

@@ -10,12 +10,14 @@ import '../screens/post_listing_screen.dart';
 class SellingCard extends StatelessWidget {
   final Listing listing;
   final VoidCallback? onTap;
+  final VoidCallback? onBuy;
   final VoidCallback? onMessage;
 
   const SellingCard({
     super.key,
     required this.listing,
     this.onTap,
+    this.onBuy,
     this.onMessage,
   });
 
@@ -196,100 +198,6 @@ class SellingCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-
-                    const Spacer(), // Pushes the price and seller row neatly to the bottom
-
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          '₱${listing.price!.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: FreshCycleTheme.primary,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        if (listing.originalPrice != null)
-                          Text(
-                            '₱${listing.originalPrice!.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: FreshCycleTheme.textHint,
-                              decoration: TextDecoration.lineThrough,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    const Divider(
-                      height: 1,
-                      color: FreshCycleTheme.borderColor,
-                    ),
-                    const SizedBox(height: 8),
-
-                    Row(
-                      children: [
-                        SellerAvatar(seller: listing.seller, size: 16),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                listing.seller.name,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: FreshCycleTheme.textPrimary,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              StarRating(
-                                rating: listing.seller.rating,
-                                reviews: listing.seller.totalReviews,
-                              ),
-                            ],
-                          ),
-                        ),
-                        DistanceChip(distanceKm: listing.distanceKm),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    if (!isOwnListing)
-                      SizedBox(
-                        width: double.infinity,
-                        height: 32,
-                        child: OutlinedButton.icon(
-                          onPressed: onMessage,
-                          icon: const Icon(
-                            Icons.chat_bubble_outline_rounded,
-                            size: 15,
-                          ),
-                          label: const Text('Message seller'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: FreshCycleTheme.primary,
-                            side: const BorderSide(
-                              color: FreshCycleTheme.primary,
-                              width: 0.5,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            textStyle: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),

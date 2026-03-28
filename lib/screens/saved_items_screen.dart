@@ -33,7 +33,7 @@ class SavedItemsScreen extends StatelessWidget {
                 crossAxisCount: 2,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
-                mainAxisExtent: 380,
+                mainAxisExtent: 260,
               ),
               itemCount: savedListings.length,
               itemBuilder: (context, index) {
@@ -45,11 +45,28 @@ class SavedItemsScreen extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (_) => ListingDetailScreen(
                           listing: savedListings[index],
+                          onBuy: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Purchase request sent for ${savedListings[index].title}',
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     );
                   },
-                  onMessage: () {}, // Optional: Add message logic here
+                  onBuy: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Purchase request sent for ${savedListings[index].title}',
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
