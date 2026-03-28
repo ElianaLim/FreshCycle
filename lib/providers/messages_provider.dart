@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/messages.dart';
+import '../models/notification.dart';
 import '../data/db.dart';
 
 class MessagesProvider extends ChangeNotifier {
@@ -270,6 +271,33 @@ class MessagesProvider extends ChangeNotifier {
         );
         notifyListeners();
       }
+    } catch (e) {
+      print('Failed to mark as read: $e');
+    }
+  }
+
+  /// Mark messages in a conversation as read and also mark related notifications as read
+  /// This links the unread message count to notifications to keep them in sync
+  Future<void> markAsReadWithNotifications(String conversationId, Function(String) markNotificationRead) async {
+    if (_currentUserId == null) return;
+
+    try {
+      // First mark messages as read
+      await DB.markMessagesAsRead(conversationId, _currentUserId!);
+      
+      // Find all unread message notifications for this conversation and mark them as read
+      final notifications = await DB.getNotifications(_currentUserId!);
+      for (final notif in notifications) {
+        if (notif['related_id'] == conversationId && 
+            notif['type'] == 'newMessage' && 
+            notif['is_read'] == false) {
+          await DB.markNotificationAsRead(notif['id'] as String);
+          // Also update local notification state if the provider is available
+          markNotificationRead(notif['id'] as String);
+        }
+      }
+      
+      await loadConversations();
     } catch (e) {
       print('Failed to mark as read: $e');
     }

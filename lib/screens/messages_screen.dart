@@ -9,6 +9,7 @@ import '../providers/auth_provider.dart';
 import '../providers/listing_provider.dart';
 import '../providers/messages_provider.dart';
 import 'listing_detail_screen.dart';
+import '../providers/notifications_provider.dart';
 
 class MessagesScreen extends StatefulWidget {
   final String? initialConversationId;
@@ -261,6 +262,11 @@ class _ConversationTile extends StatelessWidget {
     final avatarIndex =
         c.participantId.hashCode.abs() % FreshCycleTheme.avatarBgs.length;
 
+    // Get unread count from notifications provider to keep it in sync
+    final notificationsProvider = context.watch<NotificationsProvider>();
+    final unreadCount = notificationsProvider.getUnreadMessageNotificationsCount(c.id);
+    final hasUnread = unreadCount > 0;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -329,7 +335,7 @@ class _ConversationTile extends StatelessWidget {
                                 c.participantName,
                                 style: TextStyle(
                                   fontSize: 14,
-                                  fontWeight: c.hasUnread
+                                  fontWeight: hasUnread
                                       ? FontWeight.w700
                                       : FontWeight.w500,
                                   color: FreshCycleTheme.textPrimary,
@@ -340,10 +346,10 @@ class _ConversationTile extends StatelessWidget {
                               c.lastActiveLabel,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: c.hasUnread
+                                color: hasUnread
                                     ? FreshCycleTheme.primary
                                     : FreshCycleTheme.textHint,
-                                fontWeight: c.hasUnread
+                                fontWeight: hasUnread
                                     ? FontWeight.w600
                                     : FontWeight.w400,
                               ),
@@ -365,10 +371,10 @@ class _ConversationTile extends StatelessWidget {
                                 c.lastMessagePreview,
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: c.hasUnread
+                                  color: hasUnread
                                       ? FreshCycleTheme.textPrimary
                                       : FreshCycleTheme.textSecondary,
-                                  fontWeight: c.hasUnread
+                                  fontWeight: hasUnread
                                       ? FontWeight.w500
                                       : FontWeight.w400,
                                 ),
@@ -376,7 +382,7 @@ class _ConversationTile extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            if (c.unreadCount > 0)
+                            if (unreadCount > 0)
                               Container(
                                 margin: const EdgeInsets.only(left: 8),
                                 padding: const EdgeInsets.symmetric(
@@ -388,7 +394,7 @@ class _ConversationTile extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
-                                  '${c.unreadCount}',
+                                  '$unreadCount',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     color: Colors.white,
@@ -502,6 +508,24 @@ class ChatScreenState extends State<ChatScreen> {
         widget.conversation.id,
       );
     });
+    // Mark messages as read and also mark related notifications as read
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _markAsRead();
+    });
+  }
+
+  Future<void> _markAsRead() async {
+    if (!widget.conversation.hasUnread) return;
+    
+    final messagesProvider = context.read<MessagesProvider>();
+    final notificationsProvider = context.read<NotificationsProvider>();
+    
+    await messagesProvider.markAsReadWithNotifications(
+      widget.conversation.id,
+      (notificationId) {
+        notificationsProvider.markAsRead(notificationId);
+      },
+    );
   }
 
   @override

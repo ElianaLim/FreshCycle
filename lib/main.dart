@@ -4,9 +4,11 @@ import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
 import 'screens/marketplace_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/notifications_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/listing_provider.dart';
 import 'providers/messages_provider.dart';
+import 'providers/notifications_provider.dart';
 import 'screens/pantry_screen.dart';
 import 'data/db.dart';
 
@@ -33,8 +35,9 @@ class FreshCycleApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()..checkSession()),
-        ChangeNotifierProvider(create: (_) => ListingProvider()), // Add this
+        ChangeNotifierProvider(create: (_) => ListingProvider()),
         ChangeNotifierProvider(create: (_) => MessagesProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationsProvider()),
       ],
       child: MaterialApp(
         title: 'FreshCycle',
@@ -55,6 +58,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 2; // Start on Marketplace
+  Key _notificationsKey = const Key('notifications');
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +66,7 @@ class _MainShellState extends State<MainShell> {
       const PantryScreen(),
       const _PlaceholderScreen(label: 'Recipes', icon: Icons.restaurant_menu_outlined),
       const MarketplaceScreen(),
-      const _PlaceholderScreen(label: 'Notifications', icon: Icons.notifications_none_rounded),
+      NotificationsScreen(key: _notificationsKey),
       const ProfileScreen(),
     ];
 
@@ -110,7 +114,13 @@ class _MainShellState extends State<MainShell> {
                   activeIcon: Icons.notifications_rounded,
                   label: 'Notifications',
                   isActive: _currentIndex == 3,
-                  onTap: () => setState(() => _currentIndex = 3),
+                  onTap: () {
+                  // Force refresh notifications screen by changing key
+                  setState(() {
+                    _currentIndex = 3;
+                    _notificationsKey = Key('notifications_${DateTime.now().millisecondsSinceEpoch}');
+                  });
+                },
                 ),
                 _NavItem(
                   icon: Icons.person_outline_rounded,
