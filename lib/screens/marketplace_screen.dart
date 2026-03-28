@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import '../models/listing.dart';
 import '../models/messages.dart';
 import '../data/sample_data.dart';
@@ -42,6 +46,18 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
     'Cebu City',
     'Davao City',
   ];
+
+  // Location name to coordinates mapping
+  final Map<String, LatLng> _locationCoordinates = {
+    'Diliman, Quezon City': LatLng(14.6534, 121.0681),
+    'Makati City': LatLng(14.5547, 121.0244),
+    'Manila City': LatLng(14.5995, 120.9842),
+    'Caloocan City': LatLng(14.6578, 121.0311),
+    'Pasay City': LatLng(14.5083, 121.0539),
+    'Taguig City': LatLng(14.5176, 121.0502),
+    'Cebu City': LatLng(10.3157, 123.8854),
+    'Davao City': LatLng(7.0731, 125.6128),
+  };
 
   final List<double> _proximityOptions = [1.0, 2.0, 5.0, 10.0, 20.0, 50.0];
 
@@ -157,6 +173,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
         proximityRadius: _proximityRadius,
         availableLocations: _availableLocations,
         proximityOptions: _proximityOptions,
+        locationCoordinates: _locationCoordinates,
         onLocationChanged: (location) {
           setState(() => _currentLocation = location);
         },
@@ -204,14 +221,18 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
                       ),
                     ),
                     const SizedBox(width: 2),
-                    GestureDetector(
-                      onTap: () => _showLocationSettingsSheet(context),
-                      child: Text(
-                        _currentLocation,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: FreshCycleTheme.textSecondary,
-                          fontWeight: FontWeight.w400,
+                    Flexible(
+                      child: GestureDetector(
+                        onTap: () => _showLocationSettingsSheet(context),
+                        child: Text(
+                          _currentLocation,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: FreshCycleTheme.textSecondary,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
@@ -943,6 +964,7 @@ class _LocationSettingsSheet extends StatefulWidget {
   final List<double> proximityOptions;
   final ValueChanged<String> onLocationChanged;
   final ValueChanged<double> onProximityChanged;
+  final Map<String, LatLng> locationCoordinates;
 
   const _LocationSettingsSheet({
     required this.currentLocation,
@@ -951,6 +973,7 @@ class _LocationSettingsSheet extends StatefulWidget {
     required this.proximityOptions,
     required this.onLocationChanged,
     required this.onProximityChanged,
+    required this.locationCoordinates,
   });
 
   @override
@@ -960,27 +983,214 @@ class _LocationSettingsSheet extends StatefulWidget {
 class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
   late String _selectedLocation;
   late double _selectedProximity;
+  late LatLng _currentLatLng;
+  final MapController _mapController = MapController();
+  bool _isGettingLocation = false;
+  String _currentAddress = '';
+  final TextEditingController _locationController = TextEditingController();
+  bool _isSearching = false;
 
   @override
   void initState() {
     super.initState();
     _selectedLocation = widget.currentLocation;
     _selectedProximity = widget.proximityRadius;
+    _currentLatLng = widget.locationCoordinates[_selectedLocation] ?? LatLng(14.6534, 121.0681);
+    _locationController.text = _selectedLocation;
+    _reverseGeocode(_currentLatLng);
+  }
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    _locationController.dispose();
+    super.dispose();
+  }
+
+  // Convert km radius to meters for the circle
+  double get _radiusInMeters => _selectedProximity * 1000;
+
+  // Reverse geocode coordinates to address
+  Future<void> _reverseGeocode(LatLng location) async {
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        location.latitude,
+        location.longitude,
+      );
+      
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        String address = '';
+        
+        if (place.street != null && place.street!.isNotEmpty) {
+          address = place.street!;
+        }
+        if (place.subLocality != null && place.subLocality!.isNotEmpty) {
+          address = address.isEmpty ? place.subLocality! : '$address, ${place.subLocality}';
+        }
+        if (place.locality != null && place.locality!.isNotEmpty) {
+          address = address.isEmpty ? place.locality! : '$address, ${place.locality}';
+        }
+        if (place.administrativeArea != null && place.administrativeArea!.isNotEmpty) {
+          address = address.isEmpty ? place.administrativeArea! : '$address, ${place.administrativeArea}';
+        }
+        
+        setState(() {
+          _currentAddress = address.isNotEmpty ? address : 'Selected Location';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _currentAddress = 'Selected Location';
+      });
+    }
+  }
+
+  // Forward geocode address to coordinates
+  Future<void> _geocodeAddress(String address) async {
+    if (address.trim().isEmpty) return;
+    
+    setState(() => _isSearching = true);
+    
+    try {
+      List<Location> locations = await locationFromAddress(address);
+      
+      if (locations.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location not found'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+      
+      final newLocation = LatLng(locations.first.latitude, locations.first.longitude);
+      
+      setState(() {
+        _currentLatLng = newLocation;
+        _selectedLocation = address;
+      });
+
+      // Move map and reverse geocode
+      _mapController.move(newLocation, 14.0);
+      await _reverseGeocode(newLocation);
+
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to find location: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSearching = false);
+      }
+    }
+  }
+
+  // Get current location
+  Future<void> _getCurrentLocation() async {
+    setState(() => _isGettingLocation = true);
+    
+    try {
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please enable location services'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Check location permissions
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Location permission denied'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location permissions are permanently denied. Please enable in settings.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Get current position
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      final newLocation = LatLng(position.latitude, position.longitude);
+      
+      setState(() {
+        _currentLatLng = newLocation;
+        _selectedLocation = 'Current Location';
+        _locationController.text = 'Current Location';
+      });
+
+      // Move map and reverse geocode
+      _mapController.move(newLocation, 14.0);
+      await _reverseGeocode(newLocation);
+
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to get location: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGettingLocation = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Handle
-            Center(
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Handle
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Center(
               child: Container(
                 width: 36,
                 height: 4,
@@ -990,153 +1200,421 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Location Settings',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: FreshCycleTheme.textPrimary,
-              ),
+          ),
+          // Title
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Location Settings',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: FreshCycleTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    widget.onLocationChanged(_currentAddress.isNotEmpty ? _currentAddress : _selectedLocation);
+                    widget.onProximityChanged(_selectedProximity);
+                    Navigator.pop(context);
+                  },
+                  child: const Text(
+                    'Apply',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: FreshCycleTheme.primary,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-            // Location section
-            const Text(
-              'Current Location',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: FreshCycleTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                children: widget.availableLocations.map((location) {
-                  final isSelected = location == _selectedLocation;
-                  return InkWell(
-                    onTap: () {
-                      setState(() => _selectedLocation = location);
-                      widget.onLocationChanged(location);
+          ),
+          // Map section
+          Expanded(
+            child: Stack(
+              children: [
+                // Map
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _currentLatLng,
+                    initialZoom: 12.0,
+                    onTap: (tapPosition, point) async {
+                      setState(() {
+                        _currentLatLng = point;
+                      });
+                      await _reverseGeocode(point);
                     },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: isSelected ? FreshCycleTheme.primaryLight : Colors.transparent,
-                        border: Border(
-                          bottom: location != widget.availableLocations.last
-                              ? BorderSide(color: FreshCycleTheme.borderColor, width: 0.5)
-                              : BorderSide.none,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.example.flutter_application_1',
+                    ),
+                    // Radius circle (blue overlay like Facebook Marketplace)
+                    CircleLayer(
+                      circles: [
+                        CircleMarker(
+                          point: _currentLatLng,
+                          radius: _radiusInMeters,
+                          useRadiusInMeter: true,
+                          color: FreshCycleTheme.primary.withOpacity(0.15),
+                          borderColor: FreshCycleTheme.primary,
+                          borderStrokeWidth: 2,
+                        ),
+                      ],
+                    ),
+                    // Pin marker
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: _currentLatLng,
+                          width: 40,
+                          height: 40,
+                          child: const _LocationPin(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                // Location info overlay - now showing reverse geocoded address
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on,
+                          size: 16,
+                          color: FreshCycleTheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _currentAddress.isNotEmpty ? _currentAddress : _selectedLocation,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: FreshCycleTheme.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          '${_selectedProximity.toStringAsFixed(1)} km',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: FreshCycleTheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Use current location button
+                Positioned(
+                  bottom: 12,
+                  right: 12,
+                  child: FloatingActionButton.small(
+                    heroTag: 'currentLocation',
+                    onPressed: _isGettingLocation ? null : _getCurrentLocation,
+                    backgroundColor: Colors.white,
+                    foregroundColor: FreshCycleTheme.primary,
+                    child: _isGettingLocation
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: FreshCycleTheme.primary,
+                            ),
+                          )
+                        : const Icon(Icons.my_location),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Location selector and proximity slider
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Location text input with search
+                const Text(
+                  'Search Location',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: FreshCycleTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: TextField(
+                          controller: _locationController,
+                          decoration: InputDecoration(
+                            hintText: 'Enter address or place name...',
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              size: 20,
+                              color: FreshCycleTheme.textSecondary,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            suffixIcon: _isSearching
+                                ? const Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: FreshCycleTheme.primary,
+                                      ),
+                                    ),
+                                  )
+                                : _locationController.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, size: 18),
+                                        onPressed: () {
+                                          _locationController.clear();
+                                        },
+                                      )
+                                    : null,
+                          ),
+                          onSubmitted: (value) {
+                            if (value.isNotEmpty) {
+                              _geocodeAddress(value);
+                            }
+                          },
                         ),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isSelected
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_off,
-                            size: 20,
-                            color: isSelected
-                                ? FreshCycleTheme.primary
-                                : FreshCycleTheme.textSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    // Quick select dropdown
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: widget.availableLocations.contains(_selectedLocation) ? _selectedLocation : null,
+                          hint: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Text('Presets'),
                           ),
-                          const SizedBox(width: 12),
-                          Text(
-                            location,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: FreshCycleTheme.textPrimary,
-                              fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
-                            ),
-                          ),
-                        ],
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          borderRadius: BorderRadius.circular(10),
+                          icon: const Icon(Icons.arrow_drop_down, size: 20),
+                          items: widget.availableLocations.map((location) {
+                            return DropdownMenuItem(
+                              value: location,
+                              child: Text(
+                                location,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedLocation = value;
+                                _locationController.text = value;
+                                _currentLatLng = widget.locationCoordinates[value] ?? LatLng(14.6534, 121.0681);
+                                _mapController.move(_currentLatLng, 12.0);
+                              });
+                              _reverseGeocode(_currentLatLng);
+                            }
+                          },
+                        ),
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Proximity section
-            const Text(
-              'Area Proximity',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: FreshCycleTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Show listings within this radius',
-              style: const TextStyle(
-                fontSize: 12,
-                color: FreshCycleTheme.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: widget.proximityOptions.map((proximity) {
-                final isSelected = proximity == _selectedProximity;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() => _selectedProximity = proximity);
-                    widget.onProximityChanged(proximity);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isSelected ? FreshCycleTheme.primary : Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isSelected ? FreshCycleTheme.primary : FreshCycleTheme.borderColor,
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Text(
-                      '${proximity.toInt()} km',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: isSelected ? Colors.white : FreshCycleTheme.textSecondary,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => Navigator.pop(context),
-                style: FilledButton.styleFrom(
-                  backgroundColor: FreshCycleTheme.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  ],
                 ),
-                child: const Text(
-                  'Apply',
+                const SizedBox(height: 20),
+                // Continuous radius slider - 1km to 10km
+                const Text(
+                  'Search Radius',
                   style: TextStyle(
-                    fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    color: FreshCycleTheme.textPrimary,
                   ),
                 ),
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  'Show listings within ${_selectedProximity.toStringAsFixed(1)} km radius',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: FreshCycleTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Continuous slider with more granular control
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: FreshCycleTheme.primary,
+                    inactiveTrackColor: FreshCycleTheme.primary.withOpacity(0.2),
+                    thumbColor: FreshCycleTheme.primary,
+                    overlayColor: FreshCycleTheme.primary.withOpacity(0.1),
+                    valueIndicatorColor: FreshCycleTheme.primary,
+                    valueIndicatorTextStyle: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    // Show more tick marks for granular control
+                    showValueIndicator: ShowValueIndicator.always,
+                  ),
+                  child: Slider(
+                    value: _selectedProximity,
+                    min: 1.0,  // 1km minimum
+                    max: 10.0, // 10km maximum
+                    divisions: 90, // 0.1 km increments for granular control
+                    label: '${_selectedProximity.toStringAsFixed(1)} km',
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedProximity = value;
+                      });
+                    },
+                  ),
+                ),
+                // Radius preset buttons for quick selection
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildRadiusChip(1.0),
+                    _buildRadiusChip(2.0),
+                    _buildRadiusChip(5.0),
+                    _buildRadiusChip(7.5),
+                    _buildRadiusChip(10.0),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRadiusChip(double radius) {
+    final isSelected = (_selectedProximity - radius).abs() < 0.1;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _selectedProximity = radius);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? FreshCycleTheme.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? FreshCycleTheme.primary : FreshCycleTheme.borderColor,
+            width: 0.5,
+          ),
+        ),
+        child: Text(
+          '${radius.toInt()} km',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: isSelected ? Colors.white : FreshCycleTheme.textSecondary,
+          ),
         ),
       ),
+    );
+  }
+}
+
+// Custom location pin widget
+class _LocationPin extends StatelessWidget {
+  const _LocationPin();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Pin shadow
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+        ),
+        // Pin icon
+        Container(
+          width: 32,
+          height: 32,
+          decoration: const BoxDecoration(
+            color: FreshCycleTheme.primary,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.location_on,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+        // Pin center dot
+        Container(
+          width: 8,
+          height: 8,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ],
     );
   }
 }
