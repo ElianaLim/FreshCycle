@@ -27,7 +27,9 @@ class PantryItem {
   });
 
   String get daysLeft {
-    final diff = expiryDate.difference(DateTime.now()).inDays;
+    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final expiry = DateTime(expiryDate.year, expiryDate.month, expiryDate.day);
+    final diff = expiry.difference(today).inDays;
     if (diff < 0) return 'Expired';
     if (diff == 0) return 'Expires today';
     if (diff == 1) return 'Expires tomorrow';
@@ -48,7 +50,9 @@ class _PantryScreenState extends State<PantryScreen> {
 
   // Logic to determine urgency based on date
   UrgencyLevel _calculateUrgency(DateTime expiry) {
-    final diff = expiry.difference(DateTime.now()).inDays;
+    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final expiryDay = DateTime(expiry.year, expiry.month, expiry.day);
+    final diff = expiryDay.difference(today).inDays;
     if (diff <= 1) return UrgencyLevel.critical;
     if (diff <= 3) return UrgencyLevel.soon;
     return UrgencyLevel.safe;
@@ -284,7 +288,9 @@ class _PantryScreenState extends State<PantryScreen> {
   }
 
   double _progressValue(PantryItem item) {
-    final daysLeft = item.expiryDate.difference(DateTime.now()).inDays.clamp(0, 9999);
+    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final expiry = DateTime(item.expiryDate.year, item.expiryDate.month, item.expiryDate.day);
+    final daysLeft = expiry.difference(today).inDays.clamp(0, 9999);
     return (daysLeft / 7.0).clamp(0.0, 1.0);
   }
 
@@ -507,8 +513,14 @@ class _PantryScreenState extends State<PantryScreen> {
   }
 
   Widget _buildPantryList() {
+    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final expired = myPantry.where((i) {
+      final expiry = DateTime(i.expiryDate.year, i.expiryDate.month, i.expiryDate.day);
+      return expiry.isBefore(today);
+    }).toList();
     final expiring = myPantry
         .where((i) => i.urgency == UrgencyLevel.critical || i.urgency == UrgencyLevel.soon)
+        .where((i) => !expired.contains(i))
         .toList();
     final rest = myPantry
         .where((i) => i.urgency == UrgencyLevel.safe)
@@ -516,6 +528,51 @@ class _PantryScreenState extends State<PantryScreen> {
 
     return CustomScrollView(
       slivers: [
+        if (expired.isNotEmpty) ...[
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.cancel_outlined, size: 16, color: Colors.red),
+                  const SizedBox(width: 6),
+                  const Expanded(
+                    child: Text(
+                      'Expired',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.red,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${expired.length}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.red),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, i) => _buildItemCard(expired[i], myPantry.indexOf(expired[i])),
+                childCount: expired.length,
+              ),
+            ),
+          ),
+        ],
         if (expiring.isNotEmpty) ...[
           SliverToBoxAdapter(
             child: Padding(
@@ -588,7 +645,7 @@ class _PantryScreenState extends State<PantryScreen> {
             ),
           ),
         ],
-        if (expiring.isNotEmpty && rest.isEmpty)
+        if (rest.isEmpty)
           const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
       ],
     );
