@@ -8,7 +8,6 @@ class MessagesProvider extends ChangeNotifier {
   String? _errorMessage;
   String? _currentUserId;
   
-  // Map to track merged conversation relationships: primaryID -> list of all related IDs
   final Map<String, List<String>> _mergedConversationIds = {};
 
   List<Conversation> get conversations => _conversations;
@@ -23,7 +22,6 @@ class MessagesProvider extends ChangeNotifier {
       .where((c) => c.context == ConversationContext.request)
       .toList();
 
-  /// Set active user without forcing a full conversation preload.
   void setCurrentUser(String userId) {
     if (_currentUserId != userId) {
       _currentUserId = userId;
@@ -33,7 +31,6 @@ class MessagesProvider extends ChangeNotifier {
     }
   }
 
-  /// Initialize the provider with a user ID and load conversations
   Future<void> initialize(String userId, {bool forceReload = false}) async {
     if (!forceReload && _currentUserId == userId && _conversations.isNotEmpty) {
       return;
@@ -100,7 +97,7 @@ class MessagesProvider extends ChangeNotifier {
         final primary = group.first;
         
         // Determine the correct participant ID
-        // The participant should be the OTHER user, not the current user
+        // The participant should be the other user, not the current user
         String participantId = primary.participantId;
         String participantName = primary.participantName;
         String participantInitials = primary.participantInitials;
@@ -185,7 +182,6 @@ class MessagesProvider extends ChangeNotifier {
         conversations.add(Conversation.fromMap(convMap, messages));
       }
 
-      // Merge duplicate conversations (same context + listing)
       _conversations = _mergeDuplicateConversations(conversations);
       _sortConversations();
     } catch (e) {
@@ -196,21 +192,16 @@ class MessagesProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Refresh only one conversation's messages (faster than loading all chats)
   Future<void> refreshConversation(String conversationId) async {
     final index = _conversations.indexWhere((c) => c.id == conversationId);
     if (index == -1) return;
 
     try {
-      // For merged conversations, we need to check if there are other conversation IDs
-      // with the same context + listing that need to be refreshed too
       final currentConv = _conversations[index];
       final allRelatedMessages = <ChatMessage>[];
       
-      // Get all conversation IDs that share the same context + listing
       final relatedConvIds = _findRelatedConversationIds(currentConv);
       
-      // Fetch messages from all related conversations
       for (final convId in relatedConvIds) {
         final msgMaps = await DB.getMessages(convId);
         final msgs = msgMaps.map((m) => ChatMessage.fromMap(m)).toList();
@@ -244,19 +235,14 @@ class MessagesProvider extends ChangeNotifier {
     }
   }
 
-  /// Find all conversation IDs that have the same context + listing as the given conversation
-  /// This is used to support merged conversations
   List<String> _findRelatedConversationIds(Conversation conv) {
-    // First check if this is a merged conversation
     if (_mergedConversationIds.containsKey(conv.id)) {
       return _mergedConversationIds[conv.id]!;
     }
     
-    // If not merged, return just this conversation ID
     return [conv.id];
   }
 
-  /// Get a specific conversation by ID
   Conversation? getConversation(String conversationId) {
     try {
       return _conversations.firstWhere((c) => c.id == conversationId);
@@ -273,12 +259,9 @@ class MessagesProvider extends ChangeNotifier {
     if (_currentUserId == null) return false;
 
     try {
-      // Check if this is a merged conversation
       final relatedConvIds = _mergedConversationIds[conversationId];
       
       if (relatedConvIds != null && relatedConvIds.length > 1) {
-        // For merged conversations, send to all related IDs
-        // First, send to the primary conversation (which will create the notification)
         final result = await DB.sendMessage(
           conversationId: conversationId,
           senderId: _currentUserId!,
@@ -287,7 +270,6 @@ class MessagesProvider extends ChangeNotifier {
 
         if (result == null) return false;
 
-        // Then also send to other related conversations (for the other user's perspective)
         for (final convId in relatedConvIds) {
           if (convId != conversationId) {
             await DB.sendMessage(
@@ -298,7 +280,6 @@ class MessagesProvider extends ChangeNotifier {
           }
         }
 
-        // Update local state with messages from all related conversations
         final allMessages = <ChatMessage>[];
         for (final convId in relatedConvIds) {
           final msgMaps = await DB.getMessages(convId);
@@ -377,7 +358,6 @@ class MessagesProvider extends ChangeNotifier {
       );
 
       if (existing != null) {
-        // If an initial message was passed on an existing chat, send it immediately
         if (initialMessage != null && initialMessage.isNotEmpty) {
           await sendMessage(
             conversationId: existing['id'] as String,
@@ -386,7 +366,6 @@ class MessagesProvider extends ChangeNotifier {
           return getConversation(existing['id'] as String);
         }
 
-        // Return the existing conversation
         final msgMaps = await DB.getMessages(existing['id'] as String);
         final messages = msgMaps.map((m) => ChatMessage.fromMap(m)).toList();
         final conversation = Conversation.fromMap(existing, messages);
@@ -479,8 +458,6 @@ class MessagesProvider extends ChangeNotifier {
     }
   }
 
-  /// Mark messages in a conversation as read and also mark related notifications as read
-  /// This links the unread message count to notifications to keep them in sync
   Future<void> markAsReadWithNotifications(
     String conversationId,
     Function(String) markNotificationRead,
@@ -488,17 +465,14 @@ class MessagesProvider extends ChangeNotifier {
     if (_currentUserId == null) return;
 
     try {
-      // First mark messages as read
       await DB.markMessagesAsRead(conversationId, _currentUserId!);
 
-      // Find all unread message notifications for this conversation and mark them as read
       final notifications = await DB.getNotifications(_currentUserId!);
       for (final notif in notifications) {
         if (notif['related_id'] == conversationId &&
             notif['type'] == 'newMessage' &&
             notif['is_read'] == false) {
           await DB.markNotificationAsRead(notif['id'] as String);
-          // Also update local notification state if the provider is available
           markNotificationRead(notif['id'] as String);
         }
       }

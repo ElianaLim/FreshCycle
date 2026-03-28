@@ -48,9 +48,7 @@ class _PostListingScreenState extends State<PostListingScreen> {
       _isFree = l.isFree;
       _allowDelivery = l.allowDelivery;
       
-      // Load existing images if they are local paths
       if (l.images != null) {
-         // Note: If using network images, you'd handle this differently in a real app
         _images.addAll(l.images!.map((path) => File(path)));
       }
     }
@@ -58,7 +56,6 @@ class _PostListingScreenState extends State<PostListingScreen> {
 
   Future<void> _takePhoto() async {
     final picker = ImagePicker();
-    // Use ImageSource.camera specifically to fulfill the "take pic from app" requirement
     final XFile? image = await picker.pickImage(source: ImageSource.camera);
     if (image != null) setState(() => _images.add(File(image.path)));
   }
@@ -76,7 +73,6 @@ class _PostListingScreenState extends State<PostListingScreen> {
             onPressed: () async {
               final authUser = context.read<AuthProvider>().user;
               
-              // Use existing sellerId if available, otherwise use current user's ID
               String sellerId;
               if (isEditing && widget.existingListing!.sellerId != null && widget.existingListing!.sellerId!.isNotEmpty) {
                 sellerId = widget.existingListing!.sellerId!;
@@ -86,7 +82,6 @@ class _PostListingScreenState extends State<PostListingScreen> {
                 sellerId = authUser?.id ?? '';
               }
               
-              // Validate sellerId is a valid UUID - if not, redirect to login
               final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', caseSensitive: false);
               if (sellerId.isEmpty || !uuidRegex.hasMatch(sellerId)) {
                 // Redirect to profile screen for login

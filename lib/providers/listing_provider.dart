@@ -16,7 +16,6 @@ class ListingProvider extends ChangeNotifier {
   List<Listing> get savedRequests => _requests.where((r) => r.isSaved).toList();
   bool get isLoading => _isLoading;
 
-  /// Load listings from database and append to hardcoded listings
   Future<void> loadListingsFromDb() async {
     if (_isLoading) return;
     _isLoading = true;
@@ -40,12 +39,10 @@ class ListingProvider extends ChangeNotifier {
         if (request != null) newRequests.add(request);
       }
 
-      // Combine with sample data (sample data first, then DB data)
       _listings = [...sampleListings, ...newListings];
       _requests = [...sampleRequests, ...newRequests];
     } catch (e) {
       print('Error loading listings from DB: $e');
-      // Keep sample data on error
       _listings = List.from(sampleListings);
       _requests = List.from(sampleRequests);
     }
@@ -54,7 +51,6 @@ class ListingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Map database row to Listing object
   Future<Listing?> _mapDbToListing(Map<String, dynamic> row) async {
     try {
       final sellerId = row['seller_id'] as String?;

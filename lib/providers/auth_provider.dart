@@ -228,7 +228,6 @@ class AuthProvider extends ChangeNotifier {
     try {
       await DB.updateProfile(userId: _user!.id, points: updatedPoints);
     } catch (_) {
-      // Keep local points for responsive UI even if remote sync fails.
     }
   }
 }

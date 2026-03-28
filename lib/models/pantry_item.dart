@@ -27,7 +27,6 @@ class PantryItem {
     required this.urgency,
   });
 
-  /// The effective expiry date — for relative items, recomputed from today.
   DateTime get computedExpiryDate {
     if (expiryType == ExpiryType.relative) {
       final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
@@ -88,8 +87,6 @@ class PantryItem {
     );
   }
 
-  /// Convert to a map for Supabase insert/update.
-  /// Pass [userId] when the user is authenticated; leave null for guests.
   Map<String, dynamic> toMap({String? userId}) {
     return {
       'id': id,
@@ -101,7 +98,6 @@ class PantryItem {
       'relative_days': relativeDays,
       'expiry_date': computedExpiryDate.toIso8601String(),
       'cost': cost,
-      // urgency is computed by the DB trigger — no need to send it
     };
   }
 

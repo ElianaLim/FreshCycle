@@ -34,12 +34,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
-  // Location and proximity settings - loaded from DB
   String _currentLocation = 'Select Location';
   double _proximityRadius = 5.0;
   LatLng? _currentLatLng;
 
-  // Default fallback coordinates (only used when no saved location)
   static const LatLng _defaultLocation = LatLng(14.6534, 121.0681);
 
   final List<double> _proximityOptions = [1.0, 2.0, 5.0, 10.0, 20.0, 50.0];

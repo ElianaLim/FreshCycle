@@ -1,6 +1,4 @@
 enum ListingType { selling, requesting }
-
-
 enum UrgencyLevel { safe, soon, critical }
 
 class SellerProfile {
@@ -40,7 +38,6 @@ class Listing {
   final String? note;
   final List<String> tags;
 
-  // App-specific runtime fields (not persisted to DB)
   final double distanceKm;
   final List<String>? images;
   final bool isFree;
@@ -72,7 +69,6 @@ class Listing {
     this.isSaved = false,
   });
 
-  /// Creates a Listing from Supabase database row
   factory Listing.fromDb({
     required String id,
     required String? sellerId,

@@ -119,7 +119,6 @@ class DB {
     required String newPassword,
   }) async {
     try {
-      // First verify the current password by trying to sign in
       final verifyResult = await _client!.auth.signInWithPassword(
         email: _client!.auth.currentUser?.email ?? '',
         password: currentPassword,
@@ -129,7 +128,6 @@ class DB {
         return false;
       }
 
-      // Now update the password
       final response = await _client!.auth.updateUser(
         UserAttributes(password: newPassword),
       );
@@ -220,7 +218,6 @@ class DB {
     return 'U';
   }
 
-  // ── Conversations & Messages ─────────────────────────────────────────────────
 
   /// Get all conversations for a user
   static Future<List<Map<String, dynamic>>> getConversations(
@@ -273,7 +270,7 @@ class DB {
     }
   }
 
-  /// Send a message (creates message and updates conversation)
+  /// Send a message 
   static Future<Map<String, dynamic>?> sendMessage({
     required String conversationId,
     required String senderId,
@@ -349,7 +346,6 @@ class DB {
         'is_muted': false,
       });
 
-      // If there's an initial message, create it
       if (initialMessage != null && initialMessage.isNotEmpty) {
         await sendMessage(
           conversationId: conversationId,
@@ -410,7 +406,6 @@ class DB {
     }
   }
 
-  // ── Notifications ─────────────────────────────────────────────────
 
   /// Get all notifications for a user
   static Future<List<Map<String, dynamic>>> getNotifications(
@@ -518,7 +513,6 @@ class DB {
     }
   }
 
-  // ── Listings ────────────────────────────────────────────────────────────────
 
   /// Get all listings from database (selling type)
   static Future<List<Map<String, dynamic>>> getListings() async {
@@ -694,7 +688,6 @@ class DB {
     );
   }
 
-  // ── Guest (local) notifications ──────────────────────────────────────────────
 
   static const _guestNotifKey = 'guest_notifications';
 
@@ -760,8 +753,6 @@ class DB {
     }
   }
 
-  /// Create a pantry expiry notification only if one with the same
-  /// [type] + [relatedId] (item id) hasn't already been sent today.
   static Future<void> notifyPantryExpiry({
     required String userId,
     required String type,
@@ -800,7 +791,6 @@ class DB {
     }
   }
 
-  // ── Location Settings (by device ID) ────────────────────────────────────────────
 
   /// Get location settings for a device
   static Future<Map<String, dynamic>?> getLocationSettings(

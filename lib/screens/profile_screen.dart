@@ -81,7 +81,7 @@ class _LoginRegisterScreenState extends State<_LoginRegisterScreen> {
       );
     }
   }
-
+// # This function was created using Generative AI
   @override
   Widget build(BuildContext context) {
     return Scaffold(

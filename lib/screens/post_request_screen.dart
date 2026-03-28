@@ -126,7 +126,7 @@ class _PostRequestScreenState extends State<PostRequestScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                initialValue: _selectedCategory,
                 decoration: const InputDecoration(labelText: 'Category*'),
                 items: _categories
                     .map((c) => DropdownMenuItem(value: c, child: Text(c)))

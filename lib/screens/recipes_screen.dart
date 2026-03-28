@@ -52,7 +52,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
     _searchController.dispose();
     super.dispose();
   }
-
+// # This function was created using Generative AI
   Future<void> _generateRecipe({required bool expiringOnly}) async {
     setState(() => _isGenerating = true);
 
@@ -146,66 +146,6 @@ class _RecipesScreenState extends State<RecipesScreen> {
     }
   }
 
-
-//       // 3. Simulate an AI network call (Replace this with actual OpenAI/Gemini call later)
-//       await Future.delayed(const Duration(seconds: 2));
-
-//       // 4. Create the dynamically generated recipe
-//       final itemNames = items.take(4).map((e) => e.name).toList();
-//       final mainIngredient = itemNames.first;
-//       final title = 'AI Special: $mainIngredient Surprise';
-
-//       final generatedRecipe = Recipe(
-//         id: 'ai_${DateTime.now().millisecondsSinceEpoch}',
-//         title: title,
-//         description: 'An AI-generated recipe to help you save food!\n\n'
-//             'Note: This recipe assumes you have basic cooking necessities '
-//             '(like cooking oil, sugar, garlic, salt, etc.). If you are missing any of '
-//             'these basics, you can easily make a request for them in the Marketplace tab!',
-//         imageUrl:
-//             'https://img.freepik.com/free-photo/healthy-vegetables-wooden-table_1150-38014.jpg',
-//         prepTimeMinutes: 10,
-//         cookTimeMinutes: 20,
-//         servings: 2,
-//         ingredients: [
-//           ...items.map((e) => 'From your pantry: ${e.name}'),
-//           'Basic necessities (cooking oil, garlic, salt, pepper, sugar to taste)',
-//         ],
-//         instructions: [
-//           'Gather your pantry items: ${itemNames.join(', ')}.',
-//           'Prepare the ingredients by washing, peeling, and chopping as necessary.',
-//           'Heat a pan over medium heat with a splash of cooking oil and sauté your garlic until fragrant.',
-//           'Add your pantry items into the pan. Stir-fry them together until thoroughly cooked.',
-//           'Season everything with salt, pepper, and a pinch of sugar to balance the flavors.',
-//           'Serve hot and enjoy a delicious meal that prevented food waste!',
-//         ],
-//         tags: ['AI Generated', 'Zero Waste', 'Quick'],
-//         difficulty: 'Easy',
-//       );
-
-//       if (!mounted) return;
-
-//       Navigator.push(
-//         context,
-//         MaterialPageRoute(
-//           builder: (context) => RecipeDetailScreen(recipe: generatedRecipe),
-//         ),
-//       );
-//     } catch (e) {
-//       if (mounted) {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           SnackBar(
-//             content: Text('Failed to generate recipe: $e'),
-//             backgroundColor: FreshCycleTheme.urgencyCritical,
-//           ),
-//         );
-//       }
-//     } finally {
-//       if (mounted) {
-//         setState(() => _isGenerating = false);
-//       }
-//     }
-//   }
 
   @override
   Widget build(BuildContext context) {
