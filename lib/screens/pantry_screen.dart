@@ -239,7 +239,7 @@ class _PantryScreenState extends State<PantryScreen> {
                           onTap: () async {
                             final picked = await showDatePicker(
                               context: context,
-                              initialDate: selectedDate,
+                              initialDate: DateTime(selectedDate.year, selectedDate.month, selectedDate.day),
                               firstDate: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
                               lastDate: DateTime.now().add(const Duration(days: 3650)),
                               builder: (context, child) {
@@ -319,7 +319,8 @@ class _PantryScreenState extends State<PantryScreen> {
                       }
                       
                       // Validate expiry date is in the future
-                      if (selectedExpiryType == ExpiryType.absolute && selectedDate.isBefore(DateTime.now())) {
+                      final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+                      if (selectedExpiryType == ExpiryType.absolute && DateTime(selectedDate.year, selectedDate.month, selectedDate.day).isBefore(today)) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Expiry date must be today or in the future')),
                         );
@@ -484,6 +485,11 @@ class _PantryScreenState extends State<PantryScreen> {
             item.daysLeft,
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: urgencyColor(item.urgency)),
           ),
+          if (item.cost != null)
+            Text(
+              '₱${item.cost!.toStringAsFixed(2)}',
+              style: const TextStyle(fontSize: 11, color: FreshCycleTheme.textSecondary),
+            ),
           const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
@@ -551,6 +557,13 @@ class _PantryScreenState extends State<PantryScreen> {
                     item.category,
                     style: const TextStyle(color: FreshCycleTheme.textSecondary, fontSize: 12),
                   ),
+                  if (item.cost != null) ...[
+                    const Text(" • ", style: TextStyle(color: FreshCycleTheme.textHint)),
+                    Text(
+                      '₱${item.cost!.toStringAsFixed(2)}',
+                      style: const TextStyle(color: FreshCycleTheme.textSecondary, fontSize: 12),
+                    ),
+                  ],
                 ],
               ),
             ),
