@@ -11,6 +11,7 @@ import 'providers/messages_provider.dart';
 import 'providers/notifications_provider.dart';
 import 'providers/navigation_provider.dart';
 import 'screens/pantry_screen.dart';
+import 'screens/recipes_screen.dart';
 import 'data/db.dart';
 import 'services/local_notification_service.dart';
 
@@ -63,9 +64,9 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   Key _notificationsKey = const Key('notifications');
 
-  final List<Widget> _screens = const [
+  final List<Widget> _screens = [
     PantryScreen(),
-    _PlaceholderScreen(label: 'Recipes', icon: Icons.restaurant_menu_outlined),
+    RecipesScreen(),
     MarketplaceScreen(),
     _PlaceholderScreen(label: 'Notifications', icon: Icons.notifications_none_rounded),
     ProfileScreen(),
