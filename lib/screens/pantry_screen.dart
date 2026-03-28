@@ -379,6 +379,38 @@ class _PantryScreenState extends State<PantryScreen> {
     );
   }
 
+  Future<void> _confirmDelete(PantryItem item, int index) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete item?'),
+        content: Text('Remove "${item.name}" from your pantry?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      setState(() {
+        myPantry.removeAt(index);
+        _sortPantry();
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${item.name} deleted')),
+        );
+      }
+    }
+  }
+
   Color _progressBarColor(PantryItem item) {
     final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
     final expiry = DateTime(item.computedExpiryDate.year, item.computedExpiryDate.month, item.computedExpiryDate.day);
@@ -439,13 +471,7 @@ class _PantryScreenState extends State<PantryScreen> {
                   if (value == 'edit') {
                     _showAddItemSheet(existingItem: item, index: index);
                   } else if (value == 'delete') {
-                    setState(() {
-                      myPantry.removeAt(index);
-                      _sortPantry();
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${item.name} deleted')),
-                    );
+                    _confirmDelete(item, index);
                   } else if (value == 'list') {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -503,6 +529,83 @@ class _PantryScreenState extends State<PantryScreen> {
         ],
       ),
     ),
+    );
+  }
+
+  Widget _buildExpiredCard(PantryItem item) {
+    final index = myPantry.indexOf(item);
+    return GestureDetector(
+      onLongPress: () => _confirmDelete(item, index),
+      child: Container(
+        width: 140,
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+        decoration: BoxDecoration(
+          color: FreshCycleTheme.urgencyCriticalBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: FreshCycleTheme.urgencyCritical.withValues(alpha: 0.3), width: 0.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: FreshCycleTheme.urgencyCritical.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(item.categoryIcon, size: 18, color: FreshCycleTheme.urgencyCritical),
+                ),
+                const Spacer(),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert_rounded, size: 18, color: FreshCycleTheme.textSecondary),
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _showAddItemSheet(existingItem: item, index: index);
+                    } else if (value == 'delete') {
+                      _confirmDelete(item, index);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(children: [Icon(Icons.edit_outlined, size: 20), SizedBox(width: 12), Text('Edit')]),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(children: [Icon(Icons.delete_outline, size: 20, color: Colors.red), SizedBox(width: 12), Text('Delete', style: TextStyle(color: Colors.red))]),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              item.name,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: FreshCycleTheme.textPrimary),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Spacer(),
+            const Text(
+              'Expired',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: FreshCycleTheme.urgencyCritical),
+            ),
+            if (item.cost != null)
+              Text(
+                '₱${item.cost!.toStringAsFixed(2)}',
+                style: const TextStyle(fontSize: 11, color: FreshCycleTheme.textSecondary),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -574,13 +677,7 @@ class _PantryScreenState extends State<PantryScreen> {
                 if (value == 'edit') {
                   _showAddItemSheet(existingItem: item, index: index);
                 } else if (value == 'delete') {
-                  setState(() {
-                    myPantry.removeAt(index);
-                    _sortPantry();
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${item.name} deleted')),
-                  );
+                  _confirmDelete(item, index);
                 } else if (value == 'list') {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -590,21 +687,27 @@ class _PantryScreenState extends State<PantryScreen> {
                   );
                 }
               },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(children: [Icon(Icons.edit_outlined, size: 20), SizedBox(width: 12), Text('Edit')]),
-                ),
-                const PopupMenuItem(
-                  value: 'list',
-                  child: Row(children: [Icon(Icons.storefront_outlined, size: 20), SizedBox(width: 12), Text('Make into listing')]),
-                ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(children: [Icon(Icons.delete_outline, size: 20, color: Colors.red), SizedBox(width: 12), Text('Delete', style: TextStyle(color: Colors.red))]),
-                ),
-              ],
+              itemBuilder: (context) {
+                final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+                final expiryDay = DateTime(item.computedExpiryDate.year, item.computedExpiryDate.month, item.computedExpiryDate.day);
+                final isExpired = expiryDay.isBefore(today);
+                return [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(children: [Icon(Icons.edit_outlined, size: 20), SizedBox(width: 12), Text('Edit')]),
+                  ),
+                  if (!isExpired)
+                    const PopupMenuItem(
+                      value: 'list',
+                      child: Row(children: [Icon(Icons.storefront_outlined, size: 20), SizedBox(width: 12), Text('Make into listing')]),
+                    ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(children: [Icon(Icons.delete_outline, size: 20, color: Colors.red), SizedBox(width: 12), Text('Delete', style: TextStyle(color: Colors.red))]),
+                  ),
+                ];
+              },
             ),
           ),
           Padding(
@@ -662,6 +765,39 @@ class _PantryScreenState extends State<PantryScreen> {
                     ),
                   ),
                   const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Clear all expired?'),
+                          content: const Text('This will remove all expired items from your pantry.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              style: TextButton.styleFrom(foregroundColor: Colors.red),
+                              child: const Text('Clear all'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmed == true) {
+                        setState(() {
+                          myPantry.removeWhere((i) {
+                            final expiry = DateTime(i.expiryDate.year, i.expiryDate.month, i.expiryDate.day);
+                            return expiry.isBefore(today);
+                          });
+                          _sortPantry();
+                        });
+                      }
+                    },
+                    child: const Text(
+                      'Clear all',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: FreshCycleTheme.urgencyCritical),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
@@ -677,12 +813,14 @@ class _PantryScreenState extends State<PantryScreen> {
               ),
             ),
           ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, i) => _buildItemCard(expired[i], myPantry.indexOf(expired[i])),
-                childCount: expired.length,
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 180,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: expired.length,
+                itemBuilder: (context, i) => _buildExpiredCard(expired[i]),
               ),
             ),
           ),
