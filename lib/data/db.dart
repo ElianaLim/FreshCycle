@@ -61,6 +61,7 @@ class DB {
         'initials': initials,
         'created_at': DateTime.now().toIso8601String(),
         'phone_number': number,
+        'points' : 0,
       });
       
       return {
@@ -69,6 +70,7 @@ class DB {
         'email': email,
         'initials': initials,
         'phone_number': number,
+        'points' : 0,
       };
     } catch (e) {
       print('Registration error: $e');
