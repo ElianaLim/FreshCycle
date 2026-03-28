@@ -11,12 +11,14 @@ import 'providers/messages_provider.dart';
 import 'providers/notifications_provider.dart';
 import 'screens/pantry_screen.dart';
 import 'data/db.dart';
+import 'services/local_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize Supabase
   await DB.init();
+  await LocalNotificationService.init();
   
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(

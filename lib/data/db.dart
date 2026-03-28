@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:math';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -558,16 +560,108 @@ class DB {
       relatedId: listingId,
     );
   }
+
+  // ── Guest (local) notifications ──────────────────────────────────────────────
+
+  static const _guestNotifKey = 'guest_notifications';
+
+  static Future<List<Map<String, dynamic>>> getGuestNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_guestNotifKey);
+    if (raw == null) return [];
+    final list = jsonDecode(raw) as List<dynamic>;
+    return list.cast<Map<String, dynamic>>();
+  }
+
+  static Future<void> saveGuestNotifications(List<Map<String, dynamic>> notifications) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_guestNotifKey, jsonEncode(notifications));
+  }
+
+  static Future<void> addGuestNotification(Map<String, dynamic> notification) async {
+    final all = await getGuestNotifications();
+    all.insert(0, notification);
+    await saveGuestNotifications(all);
+  }
+
+  static Future<void> notifyGuestPantryExpiry({
+    required String type,
+    required String title,
+    required String body,
+    required String itemId,
+  }) async {
+    try {
+      final all = await getGuestNotifications();
+      final today = DateTime.now();
+      final startOfDay = DateTime(today.year, today.month, today.day).toIso8601String();
+
+      final alreadySent = all.any((n) =>
+          n['type'] == type &&
+          n['related_id'] == itemId &&
+          (n['created_at'] as String).compareTo(startOfDay) >= 0);
+
+      if (alreadySent) return;
+
+      await addGuestNotification({
+        'id': uuid.v4(),
+        'user_id': '',
+        'type': type,
+        'title': title,
+        'body': body,
+        'related_id': itemId,
+        'is_read': false,
+        'created_at': today.toIso8601String(),
+      });
+    } catch (e) {
+      print('Guest pantry expiry notification error: $e');
+    }
+  }
+
+  /// Create a pantry expiry notification only if one with the same
+  /// [type] + [relatedId] (item id) hasn't already been sent today.
+  static Future<void> notifyPantryExpiry({
+    required String userId,
+    required String type,
+    required String title,
+    required String body,
+    required String itemId,
+  }) async {
+    try {
+      final today = DateTime.now();
+      final startOfDay = DateTime(today.year, today.month, today.day).toIso8601String();
+
+      final existing = await _client!
+          .from('notifications')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('type', type)
+          .eq('related_id', itemId)
+          .gte('created_at', startOfDay)
+          .maybeSingle();
+
+      if (existing != null) return; // already sent today
+
+      await createNotification(
+        userId: userId,
+        type: type,
+        title: title,
+        body: body,
+        relatedId: itemId,
+      );
+    } catch (e) {
+      print('Pantry expiry notification error: $e');
+    }
+  }
 }
 
 // UUID generator
 class uuid {
+  static final _rng = Random.secure();
+
   static String v4() {
-    final bytes = List<int>.generate(16, (i) => DateTime.now().microsecond % 256);
-    // Set version (4) and variant (8, 9, A, B)
+    final bytes = List<int>.generate(16, (_) => _rng.nextInt(256));
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    
     final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
     return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20, 32)}';
   }
