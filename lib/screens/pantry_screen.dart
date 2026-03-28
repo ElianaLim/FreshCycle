@@ -4,13 +4,17 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../data/db.dart';
+import '../providers/auth_provider.dart';
 import '../providers/notifications_provider.dart';
 import '../providers/navigation_provider.dart';
 import '../theme/app_theme.dart';
 import '../models/listing.dart';
 import '../models/pantry_item.dart';
+import '../models/user.dart';
 import '../services/pantry_notification_service.dart';
 import '../services/local_notification_service.dart';
+import 'post_listing_screen.dart';
+import 'profile_screen.dart';
 
 class PantryScreen extends StatefulWidget {
   const PantryScreen({super.key});
@@ -684,6 +688,99 @@ class _PantryScreenState extends State<PantryScreen>
     );
   }
 
+  // ── Convert to Listing ────────────────────────────────────────────────────────────
+
+  Future<void> _convertToListing(PantryItem item) async {
+    final auth = context.read<AuthProvider>();
+
+    if (auth.user == null) {
+      // Show login/register prompt
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Login required'),
+          content: const Text(
+            'You need an account to post listings. Would you like to login or register?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(
+                backgroundColor: FreshCycleTheme.primary,
+              ),
+              child: const Text('Login / Register'),
+            ),
+          ],
+        ),
+      );
+
+      if (proceed != true || !context.mounted) return;
+
+      // Navigate to profile screen for login/register
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ProfileScreen()),
+      ).then((_) {
+        // After returning from profile, check if logged in and try again
+        if (context.mounted) {
+          final authAfter = context.read<AuthProvider>();
+          if (authAfter.isLoggedIn) {
+            _navigateToPostListing(item);
+          }
+        }
+      });
+      return;
+    }
+
+    // User is logged in, navigate to post listing screen with prefilled data
+    _navigateToPostListing(item);
+  }
+
+  void _navigateToPostListing(PantryItem item) {
+    final authUser = context.read<AuthProvider>().user;
+    
+    if (authUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to post listings')),
+      );
+      return;
+    }
+
+    // Create a minimal Listing object to prefetch form data
+    // Use actual user ID to avoid UUID error when saving
+    final prefilledListing = Listing(
+      id: '',  // Empty ID - will be generated on save
+      sellerId: authUser.id,
+      type: ListingType.selling,
+      title: item.name,
+      description: '',
+      category: item.category,
+      price: item.cost,
+      originalPrice: item.cost,
+      expiryDate: item.computedExpiryDate,
+      postedAt: DateTime.now(),
+      urgency: item.urgency,
+      images: [],
+      isFree: false,
+      allowDelivery: false,
+      dealLocation: '',
+      seller: authUser.toSellerProfile(),
+      tags: [],
+      isSaved: false,
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PostListingScreen(existingListing: prefilledListing),
+      ),
+    );
+  }
+
   // ── Delete ──────────────────────────────────────────────────────────────────
 
   Future<void> _confirmDelete(PantryItem item, int index) async {
@@ -837,11 +934,7 @@ class _PantryScreenState extends State<PantryScreen>
                         } else if (value == 'delete') {
                           _confirmDelete(item, index);
                         } else if (value == 'list') {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text(
-                                'Moving to marketplace... (Original Cost: ₱${item.cost ?? 0})'),
-                            backgroundColor: FreshCycleTheme.primary,
-                          ));
+                          _convertToListing(item);
                         }
                       },
                       itemBuilder: (context) => [
@@ -1104,11 +1197,7 @@ class _PantryScreenState extends State<PantryScreen>
                       } else if (value == 'delete') {
                         _confirmDelete(item, index);
                       } else if (value == 'list') {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text(
-                              'Moving to marketplace... (Original Cost: ₱${item.cost ?? 0})'),
-                          backgroundColor: FreshCycleTheme.primary,
-                        ));
+                        _convertToListing(item);
                       }
                     },
                     itemBuilder: (context) {
