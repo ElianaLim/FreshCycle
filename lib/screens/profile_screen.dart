@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/user.dart';
 import '../theme/app_theme.dart';
 import '../providers/auth_provider.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -34,6 +35,7 @@ class _LoginRegisterScreenState extends State<_LoginRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _numberController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
@@ -41,6 +43,7 @@ class _LoginRegisterScreenState extends State<_LoginRegisterScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _numberController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -61,6 +64,7 @@ class _LoginRegisterScreenState extends State<_LoginRegisterScreen> {
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
+        number: _numberController.text.trim(),
       );
     }
 
@@ -166,6 +170,26 @@ class _LoginRegisterScreenState extends State<_LoginRegisterScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
+
+                // Phone Number field
+                if (!_isLogin) ...[
+                TextFormField(
+                  controller: _numberController,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone number (09)',
+                    hintText: 'Enter your phone number',
+                    prefixIcon: Icon(Icons.phone),
+                  ),
+                  keyboardType: TextInputType.phone,
+                  autocorrect: false,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your phone number';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16)],
 
                 // Password field
                 TextFormField(
@@ -337,6 +361,15 @@ class _ProfileContent extends StatelessWidget {
                       color: FreshCycleTheme.textSecondary,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  // User Email
+                  Text(
+                    user.number,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: FreshCycleTheme.textSecondary,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -352,7 +385,12 @@ class _ProfileContent extends StatelessWidget {
                       icon: Icons.person_outline_rounded,
                       label: 'Edit Profile',
                       onTap: () {
-                        // TODO: Implement edit profile
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const EditProfileScreen(),
+                          ),
+                        );
                       },
                     ),
                     _MenuItem(

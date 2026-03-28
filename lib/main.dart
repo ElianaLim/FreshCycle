@@ -52,13 +52,11 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    
     final List<Widget> _screens = [
       const PantryScreen(),
       const _PlaceholderScreen(label: 'Recipes', icon: Icons.restaurant_menu_outlined),
       const MarketplaceScreen(),
-      const _PlaceholderScreen(label: 'Impact', icon: Icons.eco_outlined),
+      const _PlaceholderScreen(label: 'Notifications', icon: Icons.notifications_none_rounded),
       const ProfileScreen(),
     ];
 
@@ -102,9 +100,9 @@ class _MainShellState extends State<MainShell> {
                   onTap: () => setState(() => _currentIndex = 2),
                 ),
                 _NavItem(
-                  icon: Icons.eco_outlined,
-                  activeIcon: Icons.eco_rounded,
-                  label: 'Impact',
+                  icon: Icons.notifications_none_rounded,
+                  activeIcon: Icons.notifications_rounded,
+                  label: 'Notifications',
                   isActive: _currentIndex == 3,
                   onTap: () => setState(() => _currentIndex = 3),
                 ),

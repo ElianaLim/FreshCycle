@@ -38,6 +38,7 @@ class AuthProvider extends ChangeNotifier {
     required String name,
     required String email,
     required String password,
+    required String number,
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -48,6 +49,7 @@ class AuthProvider extends ChangeNotifier {
         name: name,
         email: email,
         password: password,
+        number: number,
       );
 
       if (result != null) {
@@ -117,5 +119,85 @@ class AuthProvider extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  // Update user profile
+  Future<bool> updateProfile({
+    String? name,
+    String? initials,
+    String? phoneNumber,
+  }) async {
+    if (_user == null) return false;
+    
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final success = await DB.updateProfile(
+        userId: _user!.id,
+        name: name,
+        initials: initials,
+        phoneNumber: phoneNumber,
+      );
+
+      if (success) {
+        // Update local user object
+        _user = User(
+          id: _user!.id,
+          name: name ?? _user!.name,
+          email: _user!.email,
+          initials: initials ?? _user!.initials,
+          profilePictureUrl: _user!.profilePictureUrl,
+          number: phoneNumber ?? _user!.number,
+        );
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = 'Failed to update profile.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = 'Update profile error: ${e.toString()}';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Change password
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final success = await DB.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+
+      if (success) {
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = 'Current password is incorrect.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = 'Change password error: ${e.toString()}';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 }
