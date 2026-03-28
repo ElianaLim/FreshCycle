@@ -31,18 +31,18 @@ FreshCycle is a Flutter mobile application that helps reduce food waste by enabl
 - Save favorite listings
 - Direct messaging between buyers and sellers
 
-### 💬 Messaging System
+### Messaging System
 - Real-time conversations between users
 - Context-aware messaging (linked to specific listings)
 - Unread message notifications
 
-### 🔔 Notifications
+### Notifications
 - Expiry warnings for pantry items
 - New messages
 - Listing saves by other users
 - Offer updates (received, accepted, rejected)
 
-### 👤 User Profile
+### User Profile
 - Authentication (email/password via Supabase Auth)
 - Edit profile information
 - Points/rewards system
