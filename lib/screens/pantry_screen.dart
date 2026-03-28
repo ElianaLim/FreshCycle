@@ -392,7 +392,9 @@ class _PantryScreenState extends State<PantryScreen> {
   }
 
   Color _progressBarColor(PantryItem item) {
-    final daysLeft = item.computedExpiryDate.difference(DateTime.now()).inDays;
+    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final expiry = DateTime(item.computedExpiryDate.year, item.computedExpiryDate.month, item.computedExpiryDate.day);
+    final daysLeft = expiry.difference(today).inDays;
     if (daysLeft <= 1) return Colors.red;
     if (daysLeft <= 3) return Colors.orange;
     return FreshCycleTheme.primary;
