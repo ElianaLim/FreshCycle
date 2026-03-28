@@ -5,6 +5,9 @@ import '../theme/app_theme.dart';
 import '../widgets/selling_card.dart';
 import '../widgets/request_card.dart';
 import 'messages_screen.dart';
+import 'post_listing_screen.dart';
+import 'package:provider/provider.dart';
+import '../providers/listing_provider.dart';
 
 class MarketplaceScreen extends StatefulWidget {
   const MarketplaceScreen({super.key});
@@ -53,8 +56,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
     super.dispose();
   }
 
-  List<Listing> get _filteredListings {
-    List<Listing> listings = sampleListings;
+  List<Listing> _getFilteredListings(BuildContext context) {
+    // Read from the provider instead of sampleListings directly
+    List<Listing> listings = context.watch<ListingProvider>().listings;
+    
     if (_selectedCategory != 'All') {
       listings = listings
           .where((l) =>
@@ -148,6 +153,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
                     letterSpacing: -0.5,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Row(
                   children: [
                     const Icon(
@@ -266,7 +272,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
           controller: _tabController,
           children: [
             _ListingsTab(
-              listings: _filteredListings,
+              listings: _getFilteredListings(context),
               categories: _sellingCategories,
               selectedCategory: _selectedCategory,
               onCategorySelected: (c) =>
@@ -285,7 +291,14 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {},
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const PostListingScreen(),
+            ),
+          );
+        },
         backgroundColor: FreshCycleTheme.primary,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
@@ -471,7 +484,7 @@ class _ListingsTab extends StatelessWidget {
                 crossAxisCount: 2,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
-                childAspectRatio: 0.52,
+                mainAxisExtent: 380,
               ),
               delegate: SliverChildBuilderDelegate(
                 (context, i) => SellingCard(

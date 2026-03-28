@@ -39,6 +39,13 @@ class Listing {
   final String? note;
   final List<String> tags;
 
+  // Add these missing fields
+  final List<String>? images;
+  final bool isFree;
+  final bool allowDelivery;
+  final String? dealLocation;
+  final bool isSaved;
+
   const Listing({
     required this.id,
     required this.type,
@@ -55,7 +62,37 @@ class Listing {
     this.offerCount,
     this.note,
     required this.tags,
+    this.images,
+    this.isFree = false,
+    this.allowDelivery = false,
+    this.dealLocation,
+    this.isSaved = false,
   });
+
+  Listing copyWith({bool? isSaved}) {
+    return Listing(
+      id: id,
+      type: type,
+      title: title,
+      description: description,
+      category: category,
+      price: price,
+      originalPrice: originalPrice,
+      expiryDate: expiryDate,
+      postedAt: postedAt,
+      distanceKm: distanceKm,
+      urgency: urgency,
+      seller: seller,
+      offerCount: offerCount,
+      note: note,
+      tags: tags,
+      images: images,
+      isFree: isFree,
+      allowDelivery: allowDelivery,
+      dealLocation: dealLocation,
+      isSaved: isSaved ?? this.isSaved,
+    );
+  }
 
   String get urgencyLabel {
     switch (urgency) {
