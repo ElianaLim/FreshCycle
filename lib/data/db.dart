@@ -111,6 +111,34 @@ class DB {
     await _client!.auth.signOut();
   }
   
+  // Change password
+  static Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      // First verify the current password by trying to sign in
+      final verifyResult = await _client!.auth.signInWithPassword(
+        email: _client!.auth.currentUser?.email ?? '',
+        password: currentPassword,
+      );
+      
+      if (verifyResult.user == null) {
+        return false;
+      }
+      
+      // Now update the password
+      final response = await _client!.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+      
+      return response.user != null;
+    } catch (e) {
+      print('Change password error: $e');
+      return false;
+    }
+  }
+  
   // Get current user
   static Map<String, dynamic>? getCurrentUser() {
     final user = _client!.auth.currentUser;
@@ -129,6 +157,38 @@ class DB {
     } catch (e) {
       print('Get profile error: $e');
       return null;
+    }
+  }
+  
+  // Update user profile
+  static Future<bool> updateProfile({
+    required String userId,
+    String? name,
+    String? initials,
+    String? phoneNumber,
+  }) async {
+    try {
+      final updateData = <String, dynamic>{};
+      if (name != null) {
+        updateData['name'] = name;
+        if (initials == null) {
+          updateData['initials'] = _getInitials(name);
+        }
+      }
+      if (initials != null) {
+        updateData['initials'] = initials;
+      }
+      if (phoneNumber != null) {
+        updateData['phone_number'] = phoneNumber;
+      }
+      
+      if (updateData.isEmpty) return true;
+      
+      await _client!.from('profiles').update(updateData).eq('id', userId);
+      return true;
+    } catch (e) {
+      print('Update profile error: $e');
+      return false;
     }
   }
   

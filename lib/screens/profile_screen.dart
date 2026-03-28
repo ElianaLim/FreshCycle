@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/user.dart';
 import '../theme/app_theme.dart';
 import '../providers/auth_provider.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -384,7 +385,12 @@ class _ProfileContent extends StatelessWidget {
                       icon: Icons.person_outline_rounded,
                       label: 'Edit Profile',
                       onTap: () {
-                        // TODO: Implement edit profile
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const EditProfileScreen(),
+                          ),
+                        );
                       },
                     ),
                     _MenuItem(
