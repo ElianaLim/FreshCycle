@@ -41,7 +41,7 @@ final List<Listing> sampleListings = [
     price: 80,
     originalPrice: 180,
     images: [
-      'https://images.eatthismuch.com/img/136631_garrygilligan_2a94ea25-cbed-4f78-a20d-eb2be8826060.png',
+      'https://tse3.mm.bing.net/th/id/OIP.THC5pFQp7HoVsTz45qJG2gHaHa?rs=1&pid=ImgDetMain&o=7&rm=3',
     ], // Added Image
     expiryDate: DateTime.now().add(const Duration(days: 2)),
     postedAt: DateTime.now().subtract(const Duration(hours: 1)),
@@ -70,7 +70,7 @@ final List<Listing> sampleListings = [
     category: 'Bakery',
     price: 60,
     originalPrice: 120,
-    images: [], // Added Image
+    images: ['https://tse2.mm.bing.net/th/id/OIP.i5OrfWNvqJwb2OvZXXqRcQHaH0?rs=1&pid=ImgDetMain&o=7&rm=3'], // Added Image
     expiryDate: DateTime.now().add(const Duration(days: 3)),
     postedAt: DateTime.now().subtract(const Duration(hours: 3)),
     distanceKm: 1.1,

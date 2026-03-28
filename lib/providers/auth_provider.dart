@@ -55,10 +55,10 @@ class AuthProvider extends ChangeNotifier {
       if (result != null) {
         _user = User.fromMap(result);
         final deviceId = await DB.getDeviceId();
-        await DB.client.rpc('claim_guest_data', params: {
-          'p_device_id': deviceId,
-          'p_user_id': _user!.id,
-        });
+        await DB.client.rpc(
+          'claim_guest_data',
+          params: {'p_device_id': deviceId, 'p_user_id': _user!.id},
+        );
         _isLoading = false;
         notifyListeners();
         return true;
@@ -77,27 +77,21 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // Login user
-  Future<bool> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<bool> login({required String email, required String password}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final result = await DB.loginUser(
-        email: email,
-        password: password,
-      );
+      final result = await DB.loginUser(email: email, password: password);
 
       if (result != null) {
         _user = User.fromMap(result);
         final deviceId = await DB.getDeviceId();
-        await DB.client.rpc('claim_guest_data', params: {
-          'p_device_id': deviceId,
-          'p_user_id': _user!.id,
-        });
+        await DB.client.rpc(
+          'claim_guest_data',
+          params: {'p_device_id': deviceId, 'p_user_id': _user!.id},
+        );
         _isLoading = false;
         notifyListeners();
         return true;
@@ -138,7 +132,7 @@ class AuthProvider extends ChangeNotifier {
     String? phoneNumber,
   }) async {
     if (_user == null) return false;
-    
+
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -160,6 +154,7 @@ class AuthProvider extends ChangeNotifier {
           initials: initials ?? _user!.initials,
           profilePictureUrl: _user!.profilePictureUrl,
           number: phoneNumber ?? _user!.number,
+          points: _user!.points,
         );
         _isLoading = false;
         notifyListeners();
@@ -208,6 +203,28 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return false;
+    }
+  }
+
+  Future<void> addRewardPoints(int points) async {
+    if (_user == null || points <= 0) return;
+
+    final updatedPoints = _user!.points + points;
+    _user = User(
+      id: _user!.id,
+      name: _user!.name,
+      email: _user!.email,
+      initials: _user!.initials,
+      profilePictureUrl: _user!.profilePictureUrl,
+      number: _user!.number,
+      points: updatedPoints,
+    );
+    notifyListeners();
+
+    try {
+      await DB.updateProfile(userId: _user!.id, points: updatedPoints);
+    } catch (_) {
+      // Keep local points for responsive UI even if remote sync fails.
     }
   }
 }

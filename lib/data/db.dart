@@ -168,6 +168,7 @@ class DB {
     String? name,
     String? initials,
     String? phoneNumber,
+    int? points,
   }) async {
     try {
       final updateData = <String, dynamic>{};
@@ -183,6 +184,9 @@ class DB {
       if (phoneNumber != null) {
         updateData['phone_number'] = phoneNumber;
       }
+      if (points != null) {
+        updateData['points'] = points;
+      }
 
       if (updateData.isEmpty) return true;
 
@@ -193,7 +197,7 @@ class DB {
       return false;
     }
   }
-  
+
   // Returns a stable device ID, generating one on first call
   static Future<String> getDeviceId() async {
     final prefs = await SharedPreferences.getInstance();
@@ -607,12 +611,16 @@ class DB {
     return list.cast<Map<String, dynamic>>();
   }
 
-  static Future<void> saveGuestNotifications(List<Map<String, dynamic>> notifications) async {
+  static Future<void> saveGuestNotifications(
+    List<Map<String, dynamic>> notifications,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_guestNotifKey, jsonEncode(notifications));
   }
 
-  static Future<void> addGuestNotification(Map<String, dynamic> notification) async {
+  static Future<void> addGuestNotification(
+    Map<String, dynamic> notification,
+  ) async {
     final all = await getGuestNotifications();
     all.insert(0, notification);
     await saveGuestNotifications(all);
@@ -627,12 +635,18 @@ class DB {
     try {
       final all = await getGuestNotifications();
       final today = DateTime.now();
-      final startOfDay = DateTime(today.year, today.month, today.day).toIso8601String();
+      final startOfDay = DateTime(
+        today.year,
+        today.month,
+        today.day,
+      ).toIso8601String();
 
-      final alreadySent = all.any((n) =>
-          n['type'] == type &&
-          n['related_id'] == itemId &&
-          (n['created_at'] as String).compareTo(startOfDay) >= 0);
+      final alreadySent = all.any(
+        (n) =>
+            n['type'] == type &&
+            n['related_id'] == itemId &&
+            (n['created_at'] as String).compareTo(startOfDay) >= 0,
+      );
 
       if (alreadySent) return;
 
@@ -662,7 +676,11 @@ class DB {
   }) async {
     try {
       final today = DateTime.now();
-      final startOfDay = DateTime(today.year, today.month, today.day).toIso8601String();
+      final startOfDay = DateTime(
+        today.year,
+        today.month,
+        today.day,
+      ).toIso8601String();
 
       final existing = await _client!
           .from('notifications')
@@ -690,7 +708,9 @@ class DB {
   // ── Location Settings (by device ID) ────────────────────────────────────────────
 
   /// Get location settings for a device
-  static Future<Map<String, dynamic>?> getLocationSettings(String deviceId) async {
+  static Future<Map<String, dynamic>?> getLocationSettings(
+    String deviceId,
+  ) async {
     try {
       final response = await _client!
           .from('location_settings')
@@ -715,16 +735,19 @@ class DB {
     try {
       // Check if settings exist for this device
       final existing = await getLocationSettings(deviceId);
-      
+
       if (existing != null) {
         // Update existing
-        await _client!.from('location_settings').update({
-          'location_name': locationName,
-          'latitude': latitude,
-          'longitude': longitude,
-          'proximity_radius': proximityRadius,
-          'updated_at': DateTime.now().toIso8601String(),
-        }).eq('device_id', deviceId);
+        await _client!
+            .from('location_settings')
+            .update({
+              'location_name': locationName,
+              'latitude': latitude,
+              'longitude': longitude,
+              'proximity_radius': proximityRadius,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('device_id', deviceId);
       } else {
         // Insert new
         await _client!.from('location_settings').insert({

@@ -264,7 +264,8 @@ class _ConversationTile extends StatelessWidget {
 
     // Get unread count from notifications provider to keep it in sync
     final notificationsProvider = context.watch<NotificationsProvider>();
-    final unreadCount = notificationsProvider.getUnreadMessageNotificationsCount(c.id);
+    final unreadCount = notificationsProvider
+        .getUnreadMessageNotificationsCount(c.id);
     final hasUnread = unreadCount > 0;
 
     return GestureDetector(
@@ -488,6 +489,7 @@ class ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   late List<ChatMessage> _messages;
   Timer? _refreshTimer;
+  bool _isMarkingComplete = false;
 
   @override
   void initState() {
@@ -516,16 +518,15 @@ class ChatScreenState extends State<ChatScreen> {
 
   Future<void> _markAsRead() async {
     if (!widget.conversation.hasUnread) return;
-    
+
     final messagesProvider = context.read<MessagesProvider>();
     final notificationsProvider = context.read<NotificationsProvider>();
-    
-    await messagesProvider.markAsReadWithNotifications(
-      widget.conversation.id,
-      (notificationId) {
-        notificationsProvider.markAsRead(notificationId);
-      },
-    );
+
+    await messagesProvider.markAsReadWithNotifications(widget.conversation.id, (
+      notificationId,
+    ) {
+      notificationsProvider.markAsRead(notificationId);
+    });
   }
 
   @override
@@ -591,26 +592,83 @@ class ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _markTransactionComplete() async {
+    final listingId = widget.conversation.relatedListingId;
+    if (listingId == null || _isMarkingComplete) return;
+
+    final shouldComplete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Mark transaction complete?'),
+        content: const Text(
+          'This will finish the transaction, remove the listing from marketplace, and award reward points.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Complete'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldComplete != true || !mounted) return;
+
+    setState(() => _isMarkingComplete = true);
+    final listingProvider = context.read<ListingProvider>();
+    final didComplete = listingProvider.completeListingTransaction(listingId);
+
+    if (didComplete) {
+      await context.read<AuthProvider>().addRewardPoints(25);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Transaction completed. +25 points awarded.'),
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This transaction is already completed.')),
+      );
+    }
+
+    if (mounted) {
+      setState(() => _isMarkingComplete = false);
+    }
+  }
+
   Widget _buildListingPreviewTile() {
     final c = widget.conversation;
-    if (!widget.showListingPreview || c.relatedListingTitle == null) {
+    // Show preview for any chat tied to a listing, including seller-side chats.
+    final listingId = c.relatedListingId;
+    if (c.relatedListingTitle == null || listingId == null) {
       return const SizedBox.shrink();
     }
 
-    final listing = context.watch<ListingProvider>().listings.where(
+    final listingProvider = context.watch<ListingProvider>();
+    final listing = listingProvider.listings.where(
       (l) => l.id == c.relatedListingId,
     );
     final resolved = listing.isNotEmpty ? listing.first : null;
+    final isCompleted = listingProvider.isListingCompleted(listingId);
+    final isSeller = listingProvider.isSellerForListing(
+      listingId,
+      widget.currentUserId,
+    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
       child: InkWell(
-        onTap: _openRelatedListing,
+        onTap: isCompleted ? null : _openRelatedListing,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isCompleted ? FreshCycleTheme.surfaceGray : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
           ),
@@ -650,30 +708,83 @@ class ChatScreenState extends State<ChatScreen> {
                       c.relatedListingTitle!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: FreshCycleTheme.textPrimary,
+                        color: isCompleted
+                            ? FreshCycleTheme.textHint
+                            : FreshCycleTheme.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      resolved?.price != null
+                      isCompleted
+                          ? 'Transaction completed'
+                          : resolved?.price != null
                           ? '₱${resolved!.price!.toStringAsFixed(0)}'
                           : 'Tap to view details',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: FreshCycleTheme.textSecondary,
+                        color: isCompleted
+                            ? FreshCycleTheme.textHint
+                            : FreshCycleTheme.textSecondary,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: FreshCycleTheme.textHint,
-              ),
+              if (isSeller)
+                GestureDetector(
+                  onTap: isCompleted || _isMarkingComplete
+                      ? null
+                      : _markTransactionComplete,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: isCompleted
+                          ? FreshCycleTheme.primary
+                          : Colors.transparent,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isCompleted
+                            ? FreshCycleTheme.primary
+                            : FreshCycleTheme.primary,
+                      ),
+                    ),
+                    child: _isMarkingComplete
+                        ? const Padding(
+                            padding: EdgeInsets.all(6),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: FreshCycleTheme.primary,
+                            ),
+                          )
+                        : Icon(
+                            Icons.check,
+                            size: 16,
+                            color: isCompleted
+                                ? Colors.white
+                                : FreshCycleTheme.primary,
+                          ),
+                  ),
+                )
+              else
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: isCompleted
+                      ? FreshCycleTheme.textHint
+                      : FreshCycleTheme.textHint,
+                ),
+              if (isCompleted) ...[
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.lock_rounded,
+                  size: 16,
+                  color: FreshCycleTheme.textHint,
+                ),
+              ],
             ],
           ),
         ),
