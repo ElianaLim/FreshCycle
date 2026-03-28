@@ -171,7 +171,13 @@ class _ConversationList extends StatelessWidget {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => _ChatScreen(conversation: conversations[i]),
+            builder: (_) {
+              final authProvider = context.read<AuthProvider>();
+              return _ChatScreen(
+                conversation: conversations[i],
+                currentUserId: authProvider.user?.id ?? '',
+              );
+            },
           ),
         ),
       ),
@@ -391,8 +397,9 @@ class _ContextChip extends StatelessWidget {
 
 class _ChatScreen extends StatefulWidget {
   final Conversation conversation;
+  final String currentUserId;
 
-  const _ChatScreen({required this.conversation});
+  const _ChatScreen({required this.conversation, required this.currentUserId});
 
   @override
   State<_ChatScreen> createState() => _ChatScreenState();
@@ -554,7 +561,7 @@ class _ChatScreenState extends State<_ChatScreen> {
     setState(() {
       _messages.add(ChatMessage(
         id: 'new_${DateTime.now().millisecondsSinceEpoch}',
-        senderId: 'user_001',
+        senderId: widget.currentUserId,
         text: text,
         sentAt: DateTime.now(),
         status: MessageStatus.sent,
@@ -638,7 +645,7 @@ class _ChatScreenState extends State<_ChatScreen> {
               itemCount: _messages.length,
               itemBuilder: (context, i) {
                 final msg = _messages[i];
-                final isMe = msg.senderId == 'user_001';
+                final isMe = msg.senderId == widget.currentUserId;
                 final showDateSeparator = i == 0 ||
                     !_sameDay(_messages[i - 1].sentAt, msg.sentAt);
                 return Column(
