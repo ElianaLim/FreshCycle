@@ -203,4 +203,176 @@ class DB {
     }
     return 'U';
   }
+
+  // ── Conversations & Messages ─────────────────────────────────────────────────
+
+  /// Get all conversations for a user
+  static Future<List<Map<String, dynamic>>> getConversations(String userId) async {
+    try {
+      final response = await _client!
+          .from('conversations')
+          .select()
+          .or('user_id.eq.$userId,participant_id.eq.$userId')
+          .order('updated_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      print('Get conversations error: $e');
+      return [];
+    }
+  }
+
+  /// Get messages for a conversation
+  static Future<List<Map<String, dynamic>>> getMessages(String conversationId) async {
+    try {
+      final response = await _client!
+          .from('messages')
+          .select()
+          .eq('conversation_id', conversationId)
+          .order('sent_at', ascending: true);
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      print('Get messages error: $e');
+      return [];
+    }
+  }
+
+  /// Send a message (creates message and updates conversation)
+  static Future<Map<String, dynamic>?> sendMessage({
+    required String conversationId,
+    required String senderId,
+    required String text,
+  }) async {
+    try {
+      final messageId = uuid.v4();
+      final now = DateTime.now().toIso8601String();
+
+      // Insert message
+      await _client!.from('messages').insert({
+        'id': messageId,
+        'conversation_id': conversationId,
+        'sender_id': senderId,
+        'text': text,
+        'sent_at': now,
+        'status': 'sent',
+      });
+
+      // Update conversation's updated_at
+      await _client!.from('conversations').update({
+        'updated_at': now,
+      }).eq('id', conversationId);
+
+      return {
+        'id': messageId,
+        'conversation_id': conversationId,
+        'sender_id': senderId,
+        'text': text,
+        'sent_at': now,
+        'status': 'sent',
+      };
+    } catch (e) {
+      print('Send message error: $e');
+      return null;
+    }
+  }
+
+  /// Create a new conversation
+  static Future<Map<String, dynamic>?> createConversation({
+    required String userId,
+    required String participantId,
+    required String participantName,
+    required String participantInitials,
+    required bool participantIsVerified,
+    String? participantPhone,
+    String? participantBarangay,
+    required String context,
+    String? relatedListingId,
+    String? relatedListingTitle,
+    String? initialMessage,
+  }) async {
+    try {
+      final conversationId = uuid.v4();
+      final now = DateTime.now().toIso8601String();
+
+      // Create conversation
+      await _client!.from('conversations').insert({
+        'id': conversationId,
+        'user_id': userId,
+        'participant_id': participantId,
+        'participant_name': participantName,
+        'participant_initials': participantInitials,
+        'participant_is_verified': participantIsVerified,
+        'participant_phone': participantPhone,
+        'participant_barangay': participantBarangay,
+        'context': context,
+        'related_listing_id': relatedListingId,
+        'related_listing_title': relatedListingTitle,
+        'created_at': now,
+        'updated_at': now,
+        'is_muted': false,
+      });
+
+      // If there's an initial message, create it
+      if (initialMessage != null && initialMessage.isNotEmpty) {
+        await sendMessage(
+          conversationId: conversationId,
+          senderId: userId,
+          text: initialMessage,
+        );
+      }
+
+      return {
+        'id': conversationId,
+        'user_id': userId,
+        'participant_id': participantId,
+      };
+    } catch (e) {
+      print('Create conversation error: $e');
+      return null;
+    }
+  }
+
+  /// Find existing conversation with a participant for a listing/request
+  static Future<Map<String, dynamic>?> findConversation({
+    required String userId,
+    required String participantId,
+    String? relatedListingId,
+  }) async {
+    try {
+      var query = _client!.from('conversations').select().eq('user_id', userId).eq('participant_id', participantId);
+      
+      if (relatedListingId != null) {
+        query = query.eq('related_listing_id', relatedListingId);
+      }
+      
+      final response = await query.maybeSingle();
+      return response;
+    } catch (e) {
+      print('Find conversation error: $e');
+      return null;
+    }
+  }
+
+  /// Mark messages as read
+  static Future<void> markMessagesAsRead(String conversationId, String userId) async {
+    try {
+      await _client!.from('messages').update({
+        'status': 'read',
+      }).eq('conversation_id', conversationId).neq('sender_id', userId);
+    } catch (e) {
+      print('Mark messages as read error: $e');
+    }
+  }
+}
+
+// UUID generator
+class uuid {
+  static String v4() {
+    final bytes = List<int>.generate(16, (i) => DateTime.now().microsecond % 256);
+    // Set version (4) and variant (8, 9, A, B)
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20, 32)}';
+  }
 }
