@@ -276,93 +276,233 @@ class _PantryScreenState extends State<PantryScreen> {
     );
   }
 
+  Color _progressBarColor(PantryItem item) {
+    final daysLeft = item.expiryDate.difference(DateTime.now()).inDays;
+    if (daysLeft <= 1) return Colors.red;
+    if (daysLeft <= 3) return Colors.orange;
+    return FreshCycleTheme.primary;
+  }
+
+  double _progressValue(PantryItem item) {
+    final daysLeft = item.expiryDate.difference(DateTime.now()).inDays.clamp(0, 9999);
+    return (daysLeft / 7.0).clamp(0.0, 1.0);
+  }
+
+  Widget _buildExpiringCard(PantryItem item) {
+    final barColor = _progressBarColor(item);
+    final progress = _progressValue(item);
+    final index = myPantry.indexOf(item);
+
+    return GestureDetector(
+      onLongPress: () => _showAddItemSheet(existingItem: item, index: index),
+      child: Container(
+      width: 140,
+      margin: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: urgencyBgColor(item.urgency),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  item.foodType == FoodType.perishable ? Icons.eco_outlined : Icons.inventory_2_outlined,
+                  size: 18,
+                  color: urgencyColor(item.urgency),
+                ),
+              ),
+              const Spacer(),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert_rounded, size: 18, color: FreshCycleTheme.textSecondary),
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    _showAddItemSheet(existingItem: item, index: index);
+                  } else if (value == 'delete') {
+                    setState(() {
+                      myPantry.removeAt(index);
+                      _sortPantry();
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${item.name} deleted')),
+                    );
+                  } else if (value == 'list') {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Moving to marketplace... (Original Cost: ₱${item.cost ?? 0})'),
+                        backgroundColor: FreshCycleTheme.primary,
+                      ),
+                    );
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(children: [Icon(Icons.edit_outlined, size: 20), SizedBox(width: 12), Text('Edit')]),
+                  ),
+                  const PopupMenuItem(
+                    value: 'list',
+                    child: Row(children: [Icon(Icons.storefront_outlined, size: 20), SizedBox(width: 12), Text('Make into listing')]),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(children: [Icon(Icons.delete_outline, size: 20, color: Colors.red), SizedBox(width: 12), Text('Delete', style: TextStyle(color: Colors.red))]),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            item.name,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: FreshCycleTheme.textPrimary),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const Spacer(),
+          Text(
+            item.daysLeft,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: urgencyColor(item.urgency)),
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 5,
+              backgroundColor: barColor.withValues(alpha: 0.15),
+              valueColor: AlwaysStoppedAnimation<Color>(barColor),
+            ),
+          ),
+        ],
+      ),
+    ),
+    );
+  }
+
   Widget _buildItemCard(PantryItem item, int index) {
-    return Card(
+    final barColor = _progressBarColor(item);
+    final progress = _progressValue(item);
+
+    return GestureDetector(
+      onLongPress: () => _showAddItemSheet(existingItem: item, index: index),
+      child: Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: const BorderSide(color: FreshCycleTheme.borderColor, width: 0.5),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: urgencyBgColor(item.urgency),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(
-            item.foodType == FoodType.perishable ? Icons.eco_outlined : Icons.inventory_2_outlined,
-            color: urgencyColor(item.urgency),
-          ),
-        ),
-        title: Text(
-          item.name,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
-                item.daysLeft,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: urgencyColor(item.urgency),
-                  fontSize: 13,
-                ),
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: urgencyBgColor(item.urgency),
+                borderRadius: BorderRadius.circular(10),
               ),
-              const Text(" • ", style: TextStyle(color: FreshCycleTheme.textHint)),
-              Text(
-                item.foodType == FoodType.perishable ? 'Perishable' : 'Non-perishable',
-                style: const TextStyle(color: FreshCycleTheme.textSecondary, fontSize: 12),
+              child: Icon(
+                item.foodType == FoodType.perishable ? Icons.eco_outlined : Icons.inventory_2_outlined,
+                color: urgencyColor(item.urgency),
               ),
-            ],
-          ),
-        ),
-        trailing: PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert_rounded, color: FreshCycleTheme.textSecondary),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          onSelected: (value) {
-            if (value == 'edit') {
-              _showAddItemSheet(existingItem: item, index: index);
-            } else if (value == 'delete') {
-              setState(() {
-                myPantry.removeAt(index);
-                _sortPantry();
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${item.name} deleted')),
-              );
-            } else if (value == 'list') {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Moving to marketplace... (Original Cost: ₱${item.cost ?? 0})'),
-                  backgroundColor: FreshCycleTheme.primary,
+            ),
+            title: Text(
+              item.name,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    item.daysLeft,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: urgencyColor(item.urgency),
+                      fontSize: 13,
+                    ),
+                  ),
+                  const Text(" • ", style: TextStyle(color: FreshCycleTheme.textHint)),
+                  Text(
+                    item.foodType == FoodType.perishable ? 'Perishable' : 'Non-perishable',
+                    style: const TextStyle(color: FreshCycleTheme.textSecondary, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            trailing: PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded, color: FreshCycleTheme.textSecondary),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              onSelected: (value) {
+                if (value == 'edit') {
+                  _showAddItemSheet(existingItem: item, index: index);
+                } else if (value == 'delete') {
+                  setState(() {
+                    myPantry.removeAt(index);
+                    _sortPantry();
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${item.name} deleted')),
+                  );
+                } else if (value == 'list') {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Moving to marketplace... (Original Cost: ₱${item.cost ?? 0})'),
+                      backgroundColor: FreshCycleTheme.primary,
+                    ),
+                  );
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(children: [Icon(Icons.edit_outlined, size: 20), SizedBox(width: 12), Text('Edit')]),
                 ),
-              );
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'edit',
-              child: Row(children: [Icon(Icons.edit_outlined, size: 20), SizedBox(width: 12), Text('Edit')]),
+                const PopupMenuItem(
+                  value: 'list',
+                  child: Row(children: [Icon(Icons.storefront_outlined, size: 20), SizedBox(width: 12), Text('Make into listing')]),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(children: [Icon(Icons.delete_outline, size: 20, color: Colors.red), SizedBox(width: 12), Text('Delete', style: TextStyle(color: Colors.red))]),
+                ),
+              ],
             ),
-            const PopupMenuItem(
-              value: 'list',
-              child: Row(children: [Icon(Icons.storefront_outlined, size: 20), SizedBox(width: 12), Text('Make into listing')]),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 5,
+                backgroundColor: barColor.withValues(alpha: 0.15),
+                valueColor: AlwaysStoppedAnimation<Color>(barColor),
+              ),
             ),
-            const PopupMenuDivider(),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Row(children: [Icon(Icons.delete_outline, size: 20, color: Colors.red), SizedBox(width: 12), Text('Delete', style: TextStyle(color: Colors.red))]),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
+    ),
     );
   }
 
@@ -411,12 +551,14 @@ class _PantryScreenState extends State<PantryScreen> {
               ),
             ),
           ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, i) => _buildItemCard(expiring[i], myPantry.indexOf(expiring[i])),
-                childCount: expiring.length,
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 180,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: expiring.length,
+                itemBuilder: (context, i) => _buildExpiringCard(expiring[i]),
               ),
             ),
           ),
