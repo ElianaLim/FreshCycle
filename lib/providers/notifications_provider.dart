@@ -52,6 +52,22 @@ class NotificationsProvider extends ChangeNotifier {
     }
   }
 
+  /// Get all notifications for a specific conversation (by related ID)
+  List<AppNotification> getNotificationsForConversation(String conversationId) {
+    return _notifications
+        .where((n) => n.relatedId == conversationId && n.type == NotificationType.newMessage)
+        .toList();
+  }
+
+  /// Get unread message notifications count for a specific conversation
+  int getUnreadMessageNotificationsCount(String conversationId) {
+    return _notifications
+        .where((n) => n.relatedId == conversationId && 
+                     n.type == NotificationType.newMessage && 
+                     !n.isRead)
+        .length;
+  }
+
   /// Mark a single notification as read
   Future<void> markAsRead(String notificationId) async {
     try {
