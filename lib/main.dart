@@ -5,9 +5,15 @@ import 'theme/app_theme.dart';
 import 'screens/marketplace_screen.dart';
 import 'screens/profile_screen.dart';
 import 'providers/auth_provider.dart';
+import 'screens/pantry_screen.dart';
+import 'data/db.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Supabase
+  await DB.init();
+  
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -23,7 +29,7 @@ class FreshCycleApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
+      create: (_) => AuthProvider()..checkSession(),
       child: MaterialApp(
         title: 'FreshCycle',
         debugShowCheckedModeBanner: false,
@@ -49,7 +55,7 @@ class _MainShellState extends State<MainShell> {
     final authProvider = context.watch<AuthProvider>();
     
     final List<Widget> _screens = [
-      const _PlaceholderScreen(label: 'Pantry', icon: Icons.kitchen_outlined),
+      const PantryScreen(),
       const _PlaceholderScreen(label: 'Recipes', icon: Icons.restaurant_menu_outlined),
       const MarketplaceScreen(),
       const _PlaceholderScreen(label: 'Notifications', icon: Icons.notifications_none_rounded),
