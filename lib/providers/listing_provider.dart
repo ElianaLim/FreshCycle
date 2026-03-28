@@ -22,4 +22,12 @@ class ListingProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+  
+  void updateListing(Listing updatedListing) {
+    final index = _listings.indexWhere((l) => l.id == updatedListing.id);
+    if (index != -1) {
+      _listings[index] = updatedListing;
+      notifyListeners();
+    }
+  }
 }

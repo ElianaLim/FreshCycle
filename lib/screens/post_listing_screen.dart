@@ -9,7 +9,9 @@ import '../models/listing.dart';
 
 
 class PostListingScreen extends StatefulWidget {
-  const PostListingScreen({super.key});
+  final Listing? existingListing;
+
+  const PostListingScreen({super.key, this.existingListing}); 
 
   @override
   State<PostListingScreen> createState() => _PostListingScreenState();
@@ -28,6 +30,29 @@ class _PostListingScreenState extends State<PostListingScreen> {
   final _ogPriceController = TextEditingController();
   final _locationController = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existingListing != null) {
+      final l = widget.existingListing!;
+      _titleController.text = l.title;
+      _descController.text = l.description;
+      _priceController.text = l.price?.toStringAsFixed(0) ?? '';
+      _ogPriceController.text = l.originalPrice?.toStringAsFixed(0) ?? '';
+      _locationController.text = l.dealLocation ?? '';
+      _selectedCategory = l.category;
+      _expiryDate = l.expiryDate;
+      _isFree = l.isFree;
+      _allowDelivery = l.allowDelivery;
+      
+      // Load existing images if they are local paths
+      if (l.images != null) {
+         // Note: If using network images, you'd handle this differently in a real app
+        _images.addAll(l.images!.map((path) => File(path)));
+      }
+    }
+  }
+
   Future<void> _takePhoto() async {
     final picker = ImagePicker();
     // Use ImageSource.camera specifically to fulfill the "take pic from app" requirement
@@ -37,15 +62,17 @@ class _PostListingScreenState extends State<PostListingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.existingListing != null;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('New Listing'),
+        title: Text(isEditing ? 'Edit Listing' : 'New Listing'),
         actions: [
           TextButton(
             onPressed: () {
               final newListing = Listing(
-                id: DateTime.now().toString(),
+                id: isEditing ? widget.existingListing!.id : DateTime.now().toString(),
                 type: ListingType.selling,
                 title: _titleController.text,
                 description: _descController.text,
@@ -53,22 +80,29 @@ class _PostListingScreenState extends State<PostListingScreen> {
                 price: _isFree ? 0 : double.tryParse(_priceController.text),
                 originalPrice: double.tryParse(_ogPriceController.text),
                 expiryDate: _expiryDate,
-                postedAt: DateTime.now(),
-                distanceKm: 0.1, // Demo default
-                urgency: UrgencyLevel.safe, // Logic based on expiryDate
-                images: _images
-                    .map((f) => f.path)
-                    .toList(), // local paths for demo
+                postedAt: isEditing ? widget.existingListing!.postedAt : DateTime.now(),
+                distanceKm: isEditing ? widget.existingListing!.distanceKm : 0.1, 
+                urgency: UrgencyLevel.safe, 
+                images: _images.map((f) => f.path).toList(), 
                 isFree: _isFree,
-                seller: User.sampleUser
-                    .toSellerProfile(), // Helper to convert User to Seller
-                tags: [],
+                allowDelivery: _allowDelivery,
+                dealLocation: _locationController.text,
+                seller: isEditing ? widget.existingListing!.seller : User.sampleUser.toSellerProfile(),
+                tags: isEditing ? widget.existingListing!.tags : [],
+                isSaved: isEditing ? widget.existingListing!.isSaved : false,
               );
 
-              context.read<ListingProvider>().addListing(newListing);
-              Navigator.pop(context); // Go back to marketplace
+              if (isEditing) {
+                context.read<ListingProvider>().updateListing(newListing);
+              } else {
+                context.read<ListingProvider>().addListing(newListing);
+              }
+              Navigator.pop(context); 
             },
-            child: const Text('Post'),
+            child: Text(
+              isEditing ? 'Save' : 'Post',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),

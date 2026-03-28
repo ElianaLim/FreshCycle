@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import 'common_widgets.dart';
 import 'package:provider/provider.dart';
 import '../providers/listing_provider.dart';
+import '../screens/post_listing_screen.dart';
 
 class SellingCard extends StatelessWidget {
   final Listing listing;
@@ -84,14 +85,24 @@ class SellingCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                  // Save button
-                  // Save button
+
+                  // Action button (Edit if it's yours, Save if it's not)
                   Positioned(
                     bottom: 8,
                     right: 10,
                     child: GestureDetector(
                       onTap: () {
-                        context.read<ListingProvider>().toggleSave(listing.id);
+                        // Check if the current user is the seller
+                        if (listing.seller.id == 'user_001') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PostListingScreen(existingListing: listing),
+                            ),
+                          );
+                        } else {
+                          context.read<ListingProvider>().toggleSave(listing.id);
+                        }
                       },
                       child: Container(
                         width: 30,
@@ -99,17 +110,14 @@ class SellingCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
-                          border: Border.all(
-                            color: FreshCycleTheme.borderColor,
-                            width: 0.5,
-                          ),
+                          border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
                         ),
                         child: Icon(
-                          listing.isSaved
-                              ? Icons.bookmark
-                              : Icons.bookmark_border_rounded,
+                          listing.seller.id == 'user_001'
+                              ? Icons.edit_rounded // Show edit if it's yours
+                              : (listing.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded),
                           size: 16,
-                          color: listing.isSaved
+                          color: (listing.isSaved && listing.seller.id != 'user_001')
                               ? FreshCycleTheme.primary
                               : FreshCycleTheme.textSecondary,
                         ),
