@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../data/db.dart';
 import '../providers/notifications_provider.dart';
+import '../providers/navigation_provider.dart';
 import '../theme/app_theme.dart';
 import '../models/listing.dart';
 import '../models/pantry_item.dart';
@@ -18,19 +19,116 @@ class PantryScreen extends StatefulWidget {
   State<PantryScreen> createState() => _PantryScreenState();
 }
 
-class _PantryScreenState extends State<PantryScreen> {
+class _PantryScreenState extends State<PantryScreen>
+    with SingleTickerProviderStateMixin {
   List<PantryItem> myPantry = [];
   String _selectedCategory = 'All';
   bool _isLoading = true;
   String? _deviceId;
   bool _notifPermissionRequested = false;
 
+  // Highlight state
+  String? _highlightedItemId;
+  late final AnimationController _highlightController;
+  late final Animation<double> _highlightAnim;
+  final Map<String, GlobalKey> _itemKeys = {};
+  String? _lastHandledHighlight;
+  final ScrollController _expiredScrollController = ScrollController();
+  final ScrollController _expiringScrollController = ScrollController();
+
   static List<String> get _categories => FreshCycleTheme.foodCategories;
 
   @override
   void initState() {
     super.initState();
+    _highlightController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _highlightAnim = CurvedAnimation(
+      parent: _highlightController,
+      curve: Curves.easeInOut,
+    );
     _loadPantry();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Attach listener once after the first frame so context is ready
+    final nav = context.read<NavigationProvider>();
+    nav.removeListener(_onNavChanged);
+    nav.addListener(_onNavChanged);
+  }
+
+  void _onNavChanged() {
+    final nav = context.read<NavigationProvider>();
+    final itemId = nav.pantryHighlightItemId;
+    if (itemId != null && itemId != _lastHandledHighlight) {
+      _lastHandledHighlight = itemId;
+      nav.clearPantryHighlight();
+      _triggerHighlight(itemId);
+    }
+  }
+
+  void _triggerHighlight(String itemId) {
+    setState(() => _highlightedItemId = itemId);
+    _highlightController.repeat(reverse: true);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Scroll horizontal lists to the highlighted card (card width = 140 + 12 margin)
+      final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+      final item = myPantry.firstWhere((i) => i.id == itemId, orElse: () => myPantry.first);
+      final expiry = DateTime(item.computedExpiryDate.year, item.computedExpiryDate.month, item.computedExpiryDate.day);
+      final isExpired = expiry.isBefore(today);
+
+      if (isExpired) {
+        final expiredItems = myPantry.where((i) {
+          final e = DateTime(i.computedExpiryDate.year, i.computedExpiryDate.month, i.computedExpiryDate.day);
+          return e.isBefore(today);
+        }).toList();
+        final idx = expiredItems.indexWhere((i) => i.id == itemId);
+        if (idx >= 0 && _expiredScrollController.hasClients) {
+          _expiredScrollController.animateTo(
+            idx * 152.0,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOut,
+          );
+        }
+      } else {
+        final expiringItems = myPantry.where((i) {
+          final e = DateTime(i.computedExpiryDate.year, i.computedExpiryDate.month, i.computedExpiryDate.day);
+          final d = e.difference(today).inDays;
+          return !e.isBefore(today) && d <= 3;
+        }).toList();
+        final idx = expiringItems.indexWhere((i) => i.id == itemId);
+        if (idx >= 0 && _expiringScrollController.hasClients) {
+          _expiringScrollController.animateTo(
+            idx * 152.0,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOut,
+          );
+        }
+      }
+    });
+
+    // Clear highlight after 2 seconds
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        _highlightController.stop();
+        _highlightController.reset();
+        setState(() => _highlightedItemId = null);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    context.read<NavigationProvider>().removeListener(_onNavChanged);
+    _highlightController.dispose();
+    _expiredScrollController.dispose();
+    _expiringScrollController.dispose();
+    super.dispose();
   }
 
   // ── Database helpers ────────────────────────────────────────────────────────
@@ -686,272 +784,256 @@ class _PantryScreenState extends State<PantryScreen> {
     final barColor = _progressBarColor(item);
     final progress = _progressValue(item);
     final index = myPantry.indexOf(item);
+    final isHighlighted = _highlightedItemId == item.id;
 
-    return GestureDetector(
-      onLongPress: () => _showAddItemSheet(existingItem: item, index: index),
-      child: Container(
-        width: 140,
-        margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return AnimatedBuilder(
+      animation: _highlightAnim,
+      builder: (context, child) {
+        final glow = isHighlighted ? _highlightAnim.value : 0.0;
+        return GestureDetector(
+          onLongPress: () => _showAddItemSheet(existingItem: item, index: index),
+          child: Container(
+            width: 140,
+            margin: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isHighlighted
+                  ? Color.lerp(Colors.white, FreshCycleTheme.urgencySoonBg, glow)!
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isHighlighted
+                    ? FreshCycleTheme.urgencySoon.withValues(alpha: glow)
+                    : FreshCycleTheme.borderColor,
+                width: isHighlighted ? 2 : 0.5,
+              ),
+            ),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: urgencyBgColor(item.urgency),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: _buildCategoryIcon(
-                    item.categoryIcon,
-                    size: 18,
-                    color: urgencyColor(item.urgency),
-                  ),
-                ),
-                const Spacer(),
-                PopupMenuButton<String>(
-                  icon: const Icon(
-                    Icons.more_vert_rounded,
-                    size: 18,
-                    color: FreshCycleTheme.textSecondary,
-                  ),
-                  padding: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  onSelected: (value) {
-                    if (value == 'edit') {
-                      _showAddItemSheet(existingItem: item, index: index);
-                    } else if (value == 'delete') {
-                      _confirmDelete(item, index);
-                    } else if (value == 'list') {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Moving to marketplace... (Original Cost: ₱${item.cost ?? 0})',
-                          ),
-                          backgroundColor: FreshCycleTheme.primary,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: urgencyBgColor(item.urgency),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(item.categoryIcon,
+                          size: 18, color: urgencyColor(item.urgency)),
+                    ),
+                    const Spacer(),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert_rounded,
+                          size: 18, color: FreshCycleTheme.textSecondary),
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          _showAddItemSheet(existingItem: item, index: index);
+                        } else if (value == 'delete') {
+                          _confirmDelete(item, index);
+                        } else if (value == 'list') {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text(
+                                'Moving to marketplace... (Original Cost: ₱${item.cost ?? 0})'),
+                            backgroundColor: FreshCycleTheme.primary,
+                          ));
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(children: [
+                            Icon(Icons.edit_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('Edit'),
+                          ]),
                         ),
-                      );
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_outlined, size: 20),
-                          SizedBox(width: 12),
-                          Text('Edit'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'list',
-                      child: Row(
-                        children: [
-                          Icon(Icons.storefront_outlined, size: 20),
-                          SizedBox(width: 12),
-                          Text('Make into listing'),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete_outline,
-                            size: 20,
-                            color: Colors.red,
-                          ),
-                          SizedBox(width: 12),
-                          Text('Delete', style: TextStyle(color: Colors.red)),
-                        ],
-                      ),
+                        const PopupMenuItem(
+                          value: 'list',
+                          child: Row(children: [
+                            Icon(Icons.storefront_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('Make into listing'),
+                          ]),
+                        ),
+                        const PopupMenuDivider(),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(children: [
+                            Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                            SizedBox(width: 12),
+                            Text('Delete', style: TextStyle(color: Colors.red)),
+                          ]),
+                        ),
+                      ],
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  item.name,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: FreshCycleTheme.textPrimary),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const Spacer(),
+                Text(
+                  item.daysLeft,
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: urgencyColor(item.urgency)),
+                ),
+                if (item.cost != null)
+                  Text(
+                    '₱${item.cost!.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                        fontSize: 11, color: FreshCycleTheme.textSecondary),
+                  ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 5,
+                    backgroundColor: barColor.withValues(alpha: 0.15),
+                    valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              item.name,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: FreshCycleTheme.textPrimary,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const Spacer(),
-            Text(
-              item.daysLeft,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: urgencyColor(item.urgency),
-              ),
-            ),
-            if (item.cost != null)
-              Text(
-                '₱${item.cost!.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: FreshCycleTheme.textSecondary,
-                ),
-              ),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 5,
-                backgroundColor: barColor.withValues(alpha: 0.15),
-                valueColor: AlwaysStoppedAnimation<Color>(barColor),
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildExpiredCard(PantryItem item) {
     final index = myPantry.indexOf(item);
-    return GestureDetector(
-      onLongPress: () => _confirmDelete(item, index),
-      child: Container(
-        width: 140,
-        margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
-        decoration: BoxDecoration(
-          color: FreshCycleTheme.urgencyCriticalBg,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: FreshCycleTheme.urgencyCritical.withValues(alpha: 0.3),
-            width: 0.5,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    final isHighlighted = _highlightedItemId == item.id;
+
+    return AnimatedBuilder(
+      animation: _highlightAnim,
+      builder: (context, child) {
+        final glow = isHighlighted ? _highlightAnim.value : 0.0;
+        return GestureDetector(
+          onLongPress: () => _confirmDelete(item, index),
+          child: Container(
+            width: 140,
+            margin: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isHighlighted
+                  ? Color.lerp(FreshCycleTheme.urgencyCriticalBg,
+                      FreshCycleTheme.urgencyCritical.withValues(alpha: 0.15), glow)!
+                  : FreshCycleTheme.urgencyCriticalBg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isHighlighted
+                    ? FreshCycleTheme.urgencyCritical.withValues(alpha: 0.3 + glow * 0.7)
+                    : FreshCycleTheme.urgencyCritical.withValues(alpha: 0.3),
+                width: isHighlighted ? 2 : 0.5,
+              ),
+            ),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: FreshCycleTheme.urgencyCritical.withValues(
-                      alpha: 0.15,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: _buildCategoryIcon(
-                    item.categoryIcon,
-                    size: 18,
-                    color: FreshCycleTheme.urgencyCritical,
-                  ),
-                ),
-                const Spacer(),
-                PopupMenuButton<String>(
-                  icon: const Icon(
-                    Icons.more_vert_rounded,
-                    size: 18,
-                    color: FreshCycleTheme.textSecondary,
-                  ),
-                  padding: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  onSelected: (value) {
-                    if (value == 'edit') {
-                      _showAddItemSheet(existingItem: item, index: index);
-                    } else if (value == 'delete') {
-                      _confirmDelete(item, index);
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_outlined, size: 20),
-                          SizedBox(width: 12),
-                          Text('Edit'),
-                        ],
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: FreshCycleTheme.urgencyCritical.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
                       ),
+                      child: Icon(item.categoryIcon,
+                          size: 18, color: FreshCycleTheme.urgencyCritical),
                     ),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete_outline,
-                            size: 20,
-                            color: Colors.red,
-                          ),
-                          SizedBox(width: 12),
-                          Text('Delete', style: TextStyle(color: Colors.red)),
-                        ],
-                      ),
+                    const Spacer(),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert_rounded,
+                          size: 18, color: FreshCycleTheme.textSecondary),
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          _showAddItemSheet(existingItem: item, index: index);
+                        } else if (value == 'delete') {
+                          _confirmDelete(item, index);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(children: [
+                            Icon(Icons.edit_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('Edit'),
+                          ]),
+                        ),
+                        const PopupMenuDivider(),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(children: [
+                            Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                            SizedBox(width: 12),
+                            Text('Delete', style: TextStyle(color: Colors.red)),
+                          ]),
+                        ),
+                      ],
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  item.name,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: FreshCycleTheme.textPrimary),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const Spacer(),
+                const Text(
+                  'Expired',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: FreshCycleTheme.urgencyCritical),
+                ),
+                if (item.cost != null)
+                  Text(
+                    '₱${item.cost!.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                        fontSize: 11, color: FreshCycleTheme.textSecondary),
+                  ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              item.name,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: FreshCycleTheme.textPrimary,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const Spacer(),
-            const Text(
-              'Expired',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: FreshCycleTheme.urgencyCritical,
-              ),
-            ),
-            if (item.cost != null)
-              Text(
-                '₱${item.cost!.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: FreshCycleTheme.textSecondary,
-                ),
-              ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildItemCard(PantryItem item, int index) {
     final barColor = _progressBarColor(item);
     final progress = _progressValue(item);
+    _itemKeys[item.id] ??= GlobalKey();
 
     return GestureDetector(
+      key: _itemKeys[item.id],
       onLongPress: () => _showAddItemSheet(existingItem: item, index: index),
       child: Card(
         elevation: 0,
@@ -963,166 +1045,129 @@ class _PantryScreenState extends State<PantryScreen> {
             width: 0.5,
           ),
         ),
-        child: Column(
-          children: [
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
-              leading: Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: urgencyBgColor(item.urgency),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: _buildCategoryIcon(
-                  item.categoryIcon,
-                  size: 24,
-                  color: urgencyColor(item.urgency),
-                ),
-              ),
-              title: Text(
-                item.name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                ),
-              ),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      item.daysLeft,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: urgencyColor(item.urgency),
-                        fontSize: 13,
-                      ),
+            child: Column(
+              children: [
+                ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: urgencyBgColor(item.urgency),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const Text(
-                      ' • ',
-                      style: TextStyle(color: FreshCycleTheme.textHint),
-                    ),
-                    Text(
-                      item.category,
+                    child: Icon(item.categoryIcon,
+                        color: urgencyColor(item.urgency)),
+                  ),
+                  title: Text(item.name,
                       style: const TextStyle(
-                        color: FreshCycleTheme.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                    if (item.cost != null) ...[
-                      const Text(
-                        ' • ',
-                        style: TextStyle(color: FreshCycleTheme.textHint),
-                      ),
-                      Text(
-                        '₱${item.cost!.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: FreshCycleTheme.textSecondary,
-                          fontSize: 12,
+                          fontWeight: FontWeight.w600, fontSize: 16)),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          item.daysLeft,
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: urgencyColor(item.urgency),
+                              fontSize: 13),
                         ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              trailing: PopupMenuButton<String>(
-                icon: const Icon(
-                  Icons.more_vert_rounded,
-                  color: FreshCycleTheme.textSecondary,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                onSelected: (value) {
-                  if (value == 'edit') {
-                    _showAddItemSheet(existingItem: item, index: index);
-                  } else if (value == 'delete') {
-                    _confirmDelete(item, index);
-                  } else if (value == 'list') {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Moving to marketplace... (Original Cost: ₱${item.cost ?? 0})',
-                        ),
-                        backgroundColor: FreshCycleTheme.primary,
-                      ),
-                    );
-                  }
-                },
-                itemBuilder: (context) {
-                  final today = DateTime(
-                    DateTime.now().year,
-                    DateTime.now().month,
-                    DateTime.now().day,
-                  );
-                  final expiryDay = DateTime(
-                    item.computedExpiryDate.year,
-                    item.computedExpiryDate.month,
-                    item.computedExpiryDate.day,
-                  );
-                  final isExpired = expiryDay.isBefore(today);
-                  return [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_outlined, size: 20),
-                          SizedBox(width: 12),
-                          Text('Edit'),
+                        const Text(' • ',
+                            style: TextStyle(color: FreshCycleTheme.textHint)),
+                        Text(item.category,
+                            style: const TextStyle(
+                                color: FreshCycleTheme.textSecondary,
+                                fontSize: 12)),
+                        if (item.cost != null) ...[
+                          const Text(' • ',
+                              style:
+                                  TextStyle(color: FreshCycleTheme.textHint)),
+                          Text('₱${item.cost!.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  color: FreshCycleTheme.textSecondary,
+                                  fontSize: 12)),
                         ],
-                      ),
+                      ],
                     ),
-                    if (!isExpired)
-                      const PopupMenuItem(
-                        value: 'list',
-                        child: Row(
-                          children: [
-                            Icon(Icons.storefront_outlined, size: 20),
+                  ),
+                  trailing: PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert_rounded,
+                        color: FreshCycleTheme.textSecondary),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        _showAddItemSheet(existingItem: item, index: index);
+                      } else if (value == 'delete') {
+                        _confirmDelete(item, index);
+                      } else if (value == 'list') {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text(
+                              'Moving to marketplace... (Original Cost: ₱${item.cost ?? 0})'),
+                          backgroundColor: FreshCycleTheme.primary,
+                        ));
+                      }
+                    },
+                    itemBuilder: (context) {
+                      final today = DateTime(DateTime.now().year,
+                          DateTime.now().month, DateTime.now().day);
+                      final expiryDay = DateTime(
+                          item.computedExpiryDate.year,
+                          item.computedExpiryDate.month,
+                          item.computedExpiryDate.day);
+                      final isExpired = expiryDay.isBefore(today);
+                      return [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(children: [
+                            Icon(Icons.edit_outlined, size: 20),
                             SizedBox(width: 12),
-                            Text('Make into listing'),
-                          ],
+                            Text('Edit'),
+                          ]),
                         ),
-                      ),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete_outline,
-                            size: 20,
-                            color: Colors.red,
+                        if (!isExpired)
+                          const PopupMenuItem(
+                            value: 'list',
+                            child: Row(children: [
+                              Icon(Icons.storefront_outlined, size: 20),
+                              SizedBox(width: 12),
+                              Text('Make into listing'),
+                            ]),
                           ),
-                          SizedBox(width: 12),
-                          Text('Delete', style: TextStyle(color: Colors.red)),
-                        ],
-                      ),
-                    ),
-                  ];
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 5,
-                  backgroundColor: barColor.withValues(alpha: 0.15),
-                  valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                        const PopupMenuDivider(),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(children: [
+                            Icon(Icons.delete_outline,
+                                size: 20, color: Colors.red),
+                            SizedBox(width: 12),
+                            Text('Delete',
+                                style: TextStyle(color: Colors.red)),
+                          ]),
+                        ),
+                      ];
+                    },
+                  ),
                 ),
-              ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 5,
+                      backgroundColor: barColor.withValues(alpha: 0.15),
+                      valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-    );
+          ),
+        );
   }
 
   // ── List builder ────────────────────────────────────────────────────────────
@@ -1141,14 +1186,13 @@ class _PantryScreenState extends State<PantryScreen> {
       );
       return expiry.isBefore(today);
     }).toList();
-    final expiring = myPantry
-        .where(
-          (i) =>
-              i.urgency == UrgencyLevel.critical ||
-              i.urgency == UrgencyLevel.soon,
-        )
-        .where((i) => !expired.contains(i))
-        .toList();
+    final expiring = myPantry.where((i) {
+      if (expired.contains(i)) return false;
+      final expiry = DateTime(i.computedExpiryDate.year,
+          i.computedExpiryDate.month, i.computedExpiryDate.day);
+      final daysLeft = expiry.difference(today).inDays;
+      return daysLeft <= 3;
+    }).toList();
     final allRest = myPantry.toList();
     final rest = _selectedCategory == 'All'
         ? allRest
@@ -1262,6 +1306,7 @@ class _PantryScreenState extends State<PantryScreen> {
             child: SizedBox(
               height: 180,
               child: ListView.builder(
+                controller: _expiredScrollController,
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: expired.length,
@@ -1319,6 +1364,7 @@ class _PantryScreenState extends State<PantryScreen> {
             child: SizedBox(
               height: 180,
               child: ListView.builder(
+                controller: _expiringScrollController,
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: expiring.length,

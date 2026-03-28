@@ -4,6 +4,7 @@ import '../models/notification.dart';
 import '../theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notifications_provider.dart';
+import '../providers/navigation_provider.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -172,12 +173,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   void _handleNotificationTap(BuildContext context, AppNotification notification) async {
     final provider = context.read<NotificationsProvider>();
-    
-    // Mark as read if not already
+    final nav = context.read<NavigationProvider>();
+
     if (!notification.isRead) {
       await provider.markAsRead(notification.id);
     }
-    
+
+    final isPantryNotif = notification.type == NotificationType.pantryExpired ||
+        notification.type == NotificationType.pantryExpiresToday ||
+        notification.type == NotificationType.pantryExpiresTomorrow ||
+        notification.type == NotificationType.pantryExpiringSoon;
+
+    if (isPantryNotif && notification.relatedId != null) {
+      nav.navigateToPantryItem(notification.relatedId!);
+    }
   }
 
   void _showClearConfirmation(BuildContext context, NotificationsProvider provider) {

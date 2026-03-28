@@ -9,6 +9,7 @@ import 'providers/auth_provider.dart';
 import 'providers/listing_provider.dart';
 import 'providers/messages_provider.dart';
 import 'providers/notifications_provider.dart';
+import 'providers/navigation_provider.dart';
 import 'screens/pantry_screen.dart';
 import 'data/db.dart';
 import 'services/local_notification_service.dart';
@@ -40,6 +41,7 @@ class FreshCycleApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ListingProvider()),
         ChangeNotifierProvider(create: (_) => MessagesProvider()),
         ChangeNotifierProvider(create: (_) => NotificationsProvider()),
+        ChangeNotifierProvider(create: (_) => NavigationProvider()),
       ],
       child: MaterialApp(
         title: 'FreshCycle',
@@ -59,23 +61,33 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  int _currentIndex = 2; // Start on Marketplace
   Key _notificationsKey = const Key('notifications');
+
+  final List<Widget> _screens = const [
+    PantryScreen(),
+    _PlaceholderScreen(label: 'Recipes', icon: Icons.restaurant_menu_outlined),
+    MarketplaceScreen(),
+    _PlaceholderScreen(label: 'Notifications', icon: Icons.notifications_none_rounded),
+    ProfileScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> _screens = [
-      const PantryScreen(),
-      const _PlaceholderScreen(label: 'Recipes', icon: Icons.restaurant_menu_outlined),
-      const MarketplaceScreen(),
+    final nav = context.watch<NavigationProvider>();
+    final currentIndex = nav.currentIndex;
+
+    final screens = [
+      _screens[0],
+      _screens[1],
+      _screens[2],
       NotificationsScreen(key: _notificationsKey),
-      const ProfileScreen(),
+      _screens[4],
     ];
 
     return Scaffold(
       body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+        index: currentIndex,
+        children: screens,
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -94,42 +106,41 @@ class _MainShellState extends State<MainShell> {
                   icon: Icons.kitchen_outlined,
                   activeIcon: Icons.kitchen_rounded,
                   label: 'Pantry',
-                  isActive: _currentIndex == 0,
-                  onTap: () => setState(() => _currentIndex = 0),
+                  isActive: currentIndex == 0,
+                  onTap: () => nav.navigateTo(0),
                 ),
                 _NavItem(
                   icon: Icons.restaurant_menu_outlined,
                   activeIcon: Icons.restaurant_menu_rounded,
                   label: 'Recipes',
-                  isActive: _currentIndex == 1,
-                  onTap: () => setState(() => _currentIndex = 1),
+                  isActive: currentIndex == 1,
+                  onTap: () => nav.navigateTo(1),
                 ),
                 _NavItem(
                   icon: Icons.storefront_outlined,
                   activeIcon: Icons.storefront_rounded,
                   label: 'Market',
-                  isActive: _currentIndex == 2,
-                  onTap: () => setState(() => _currentIndex = 2),
+                  isActive: currentIndex == 2,
+                  onTap: () => nav.navigateTo(2),
                 ),
                 _NavItem(
                   icon: Icons.notifications_none_rounded,
                   activeIcon: Icons.notifications_rounded,
                   label: 'Notifications',
-                  isActive: _currentIndex == 3,
+                  isActive: currentIndex == 3,
                   onTap: () {
-                  // Force refresh notifications screen by changing key
-                  setState(() {
-                    _currentIndex = 3;
-                    _notificationsKey = Key('notifications_${DateTime.now().millisecondsSinceEpoch}');
-                  });
-                },
+                    setState(() {
+                      _notificationsKey = Key('notifications_${DateTime.now().millisecondsSinceEpoch}');
+                    });
+                    nav.navigateTo(3);
+                  },
                 ),
                 _NavItem(
                   icon: Icons.person_outline_rounded,
                   activeIcon: Icons.person_rounded,
                   label: 'Profile',
-                  isActive: _currentIndex == 4,
-                  onTap: () => setState(() => _currentIndex = 4),
+                  isActive: currentIndex == 4,
+                  onTap: () => nav.navigateTo(4),
                 ),
               ],
             ),
