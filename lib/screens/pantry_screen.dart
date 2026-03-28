@@ -202,7 +202,7 @@ class _PantryScreenState extends State<PantryScreen> {
                       final picked = await showDatePicker(
                         context: context,
                         initialDate: selectedDate,
-                        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                        firstDate: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
                         lastDate: DateTime.now().add(const Duration(days: 3650)),
                         builder: (context, child) {
                           return Theme(
