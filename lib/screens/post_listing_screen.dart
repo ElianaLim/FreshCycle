@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:provider/provider.dart'; 
+import 'package:provider/provider.dart';
 import 'dart:io';
 import '../theme/app_theme.dart';
-import '../providers/listing_provider.dart'; 
+import '../providers/listing_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/user.dart';
 import '../models/listing.dart';
+import '../data/db.dart';
 
 
 class PostListingScreen extends StatefulWidget {
@@ -71,10 +72,31 @@ class _PostListingScreenState extends State<PostListingScreen> {
         title: Text(isEditing ? 'Edit Listing' : 'New Listing'),
         actions: [
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               final authUser = context.read<AuthProvider>().user;
+              final sellerId = isEditing
+                  ? widget.existingListing!.sellerId ?? widget.existingListing!.seller.id
+                  : authUser?.id ?? 'demo-user';
+
+              // Save to database
+              final dbListing = await DB.createListing(
+                sellerId: sellerId,
+                type: 'selling',
+                title: _titleController.text,
+                description: _descController.text.isNotEmpty ? _descController.text : null,
+                category: _selectedCategory ?? 'General',
+                price: _isFree ? 0 : double.tryParse(_priceController.text),
+                originalPrice: double.tryParse(_ogPriceController.text),
+                expiryDate: _expiryDate,
+                urgency: 'safe',
+                note: _locationController.text.isNotEmpty ? _locationController.text : null,
+                tags: [],
+              );
+
+              // Also add to local provider for immediate display
               final newListing = Listing(
-                id: isEditing ? widget.existingListing!.id : DateTime.now().toString(),
+                id: dbListing?['id'] ?? DateTime.now().toString(),
+                sellerId: sellerId,
                 type: ListingType.selling,
                 title: _titleController.text,
                 description: _descController.text,
@@ -82,18 +104,17 @@ class _PostListingScreenState extends State<PostListingScreen> {
                 price: _isFree ? 0 : double.tryParse(_priceController.text),
                 originalPrice: double.tryParse(_ogPriceController.text),
                 expiryDate: _expiryDate,
-                postedAt: isEditing ? widget.existingListing!.postedAt : DateTime.now(),
-                distanceKm: isEditing ? widget.existingListing!.distanceKm : 0.1, 
-                urgency: UrgencyLevel.safe, 
-                images: _images.map((f) => f.path).toList(), 
+                postedAt: DateTime.now(),
+                urgency: UrgencyLevel.safe,
+                images: _images.map((f) => f.path).toList(),
                 isFree: _isFree,
                 allowDelivery: _allowDelivery,
                 dealLocation: _locationController.text,
                 seller: isEditing
                     ? widget.existingListing!.seller
                     : (authUser ?? User.sampleUser).toSellerProfile(),
-                tags: isEditing ? widget.existingListing!.tags : [],
-                isSaved: isEditing ? widget.existingListing!.isSaved : false,
+                tags: [],
+                isSaved: false,
               );
 
               if (isEditing) {
@@ -101,7 +122,7 @@ class _PostListingScreenState extends State<PostListingScreen> {
               } else {
                 context.read<ListingProvider>().addListing(newListing);
               }
-              Navigator.pop(context); 
+              if (mounted) Navigator.pop(context);
             },
             child: Text(
               isEditing ? 'Save' : 'Post',

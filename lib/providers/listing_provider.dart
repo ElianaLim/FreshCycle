@@ -1,17 +1,119 @@
 import 'package:flutter/material.dart';
 import '../models/listing.dart';
 import '../data/sample_data.dart';
+import '../data/db.dart';
 
 class ListingProvider extends ChangeNotifier {
-  final List<Listing> _listings = List.from(sampleListings);
-  final List<Listing> _requests = List.from(sampleRequests);
+  List<Listing> _listings = List.from(sampleListings);
+  List<Listing> _requests = List.from(sampleRequests);
   final Set<String> _completedListingIds = <String>{};
   final Map<String, String> _completedListingSellers = <String, String>{};
+  bool _isLoading = false;
 
   List<Listing> get listings => _listings;
   List<Listing> get requests => _requests;
   List<Listing> get savedListings => _listings.where((l) => l.isSaved).toList();
   List<Listing> get savedRequests => _requests.where((r) => r.isSaved).toList();
+  bool get isLoading => _isLoading;
+
+  /// Load listings from database and append to hardcoded listings
+  Future<void> loadListingsFromDb() async {
+    if (_isLoading) return;
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // Fetch listings from database
+      final dbListings = await DB.getListings();
+      final dbRequests = await DB.getRequests();
+
+      // Convert database rows to Listing objects
+      final List<Listing> newListings = [];
+      for (final row in dbListings) {
+        final listing = await _mapDbToListing(row);
+        if (listing != null) newListings.add(listing);
+      }
+
+      final List<Listing> newRequests = [];
+      for (final row in dbRequests) {
+        final request = await _mapDbToListing(row);
+        if (request != null) newRequests.add(request);
+      }
+
+      // Combine with sample data (sample data first, then DB data)
+      _listings = [...sampleListings, ...newListings];
+      _requests = [...sampleRequests, ...newRequests];
+    } catch (e) {
+      print('Error loading listings from DB: $e');
+      // Keep sample data on error
+      _listings = List.from(sampleListings);
+      _requests = List.from(sampleRequests);
+    }
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  /// Map database row to Listing object
+  Future<Listing?> _mapDbToListing(Map<String, dynamic> row) async {
+    try {
+      final sellerId = row['seller_id'] as String?;
+      if (sellerId == null) return null;
+
+      // Fetch seller profile
+      final sellerProfile = await DB.getProfile(sellerId);
+      if (sellerProfile == null) return null;
+
+      final seller = SellerProfile(
+        id: sellerProfile['id'] as String,
+        name: sellerProfile['name'] as String? ?? 'Unknown',
+        initials: sellerProfile['initials'] as String? ?? 'U',
+        rating: (sellerProfile['rating'] as num?)?.toDouble() ?? 0.0,
+        totalReviews: sellerProfile['total_reviews'] as int? ?? 0,
+        isVerified: sellerProfile['is_verified'] as bool? ?? false,
+        barangay: sellerProfile['barangay'] as String? ?? 'Unknown',
+      );
+
+      final typeStr = row['type'] as String? ?? 'selling';
+      final urgencyStr = row['urgency'] as String? ?? 'safe';
+
+      return Listing(
+        id: row['id'] as String,
+        sellerId: sellerId,
+        type: typeStr == 'requesting' ? ListingType.requesting : ListingType.selling,
+        title: row['title'] as String? ?? '',
+        description: row['description'] as String? ?? '',
+        category: row['category'] as String? ?? 'Uncategorized',
+        price: (row['price'] as num?)?.toDouble(),
+        originalPrice: (row['original_price'] as num?)?.toDouble(),
+        expiryDate: row['expiry_date'] != null
+            ? DateTime.tryParse(row['expiry_date'] as String)
+            : null,
+        postedAt: row['posted_at'] != null
+            ? DateTime.tryParse(row['posted_at'] as String) ?? DateTime.now()
+            : DateTime.now(),
+        urgency: _parseUrgency(urgencyStr),
+        seller: seller,
+        offerCount: row['offer_count'] as int?,
+        note: row['note'] as String?,
+        tags: (row['tags'] as List<dynamic>?)?.cast<String>() ?? [],
+      );
+    } catch (e) {
+      print('Error mapping listing: $e');
+      return null;
+    }
+  }
+
+  UrgencyLevel _parseUrgency(String value) {
+    switch (value) {
+      case 'critical':
+        return UrgencyLevel.critical;
+      case 'soon':
+        return UrgencyLevel.soon;
+      default:
+        return UrgencyLevel.safe;
+    }
+  }
 
   bool isListingCompleted(String listingId) =>
       _completedListingIds.contains(listingId);

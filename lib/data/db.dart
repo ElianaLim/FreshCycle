@@ -518,6 +518,101 @@ class DB {
     }
   }
 
+  // ── Listings ────────────────────────────────────────────────────────────────
+
+  /// Get all listings from database (selling type)
+  static Future<List<Map<String, dynamic>>> getListings() async {
+    try {
+      final response = await _client!
+          .from('listings')
+          .select()
+          .eq('type', 'selling')
+          .order('posted_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      print('Get listings error: $e');
+      return [];
+    }
+  }
+
+  /// Get all requests from database (requesting type)
+  static Future<List<Map<String, dynamic>>> getRequests() async {
+    try {
+      final response = await _client!
+          .from('listings')
+          .select()
+          .eq('type', 'requesting')
+          .order('posted_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      print('Get requests error: $e');
+      return [];
+    }
+  }
+
+  /// Get listings by seller_id
+  static Future<List<Map<String, dynamic>>> getListingsBySeller(String sellerId) async {
+    try {
+      final response = await _client!
+          .from('listings')
+          .select()
+          .eq('seller_id', sellerId)
+          .order('posted_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      print('Get listings by seller error: $e');
+      return [];
+    }
+  }
+
+  /// Create a new listing
+  static Future<Map<String, dynamic>?> createListing({
+    required String sellerId,
+    required String type,
+    required String title,
+    String? description,
+    required String category,
+    double? price,
+    double? originalPrice,
+    DateTime? expiryDate,
+    String? urgency,
+    String? note,
+    List<String>? tags,
+  }) async {
+    try {
+      final listingId = uuid.v4();
+      final now = DateTime.now().toIso8601String();
+
+      await _client!.from('listings').insert({
+        'id': listingId,
+        'seller_id': sellerId,
+        'type': type,
+        'title': title,
+        'description': description,
+        'category': category,
+        'price': price,
+        'original_price': originalPrice,
+        'expiry_date': expiryDate?.toIso8601String(),
+        'urgency': urgency ?? 'safe',
+        'note': note,
+        'tags': tags ?? [],
+        'posted_at': now,
+        'created_at': now,
+        'updated_at': now,
+      });
+
+      return {
+        'id': listingId,
+        'seller_id': sellerId,
+        'type': type,
+        'title': title,
+      };
+    } catch (e) {
+      print('Create listing error: $e');
+      return null;
+    }
+  }
+
   /// Create notification for new message in conversation
   static Future<void> notifyNewMessage({
     required String recipientId,
