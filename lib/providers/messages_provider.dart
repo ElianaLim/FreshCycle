@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import '../models/messages.dart';
-import '../models/notification.dart';
 import '../data/db.dart';
 
 class MessagesProvider extends ChangeNotifier {
@@ -21,9 +20,22 @@ class MessagesProvider extends ChangeNotifier {
       .where((c) => c.context == ConversationContext.request)
       .toList();
 
+  /// Set active user without forcing a full conversation preload.
+  void setCurrentUser(String userId) {
+    if (_currentUserId != userId) {
+      _currentUserId = userId;
+      _conversations = [];
+      _errorMessage = null;
+    }
+  }
+
   /// Initialize the provider with a user ID and load conversations
-  Future<void> initialize(String userId) async {
-    _currentUserId = userId;
+  Future<void> initialize(String userId, {bool forceReload = false}) async {
+    if (!forceReload && _currentUserId == userId && _conversations.isNotEmpty) {
+      return;
+    }
+
+    setCurrentUser(userId);
     await loadConversations();
   }
 
@@ -90,12 +102,14 @@ class MessagesProvider extends ChangeNotifier {
 
     try {
       final msgMaps = await DB.getMessages(conversationId);
-      final refreshedMessages =
-          msgMaps.map((m) => ChatMessage.fromMap(m)).toList();
+      final refreshedMessages = msgMaps
+          .map((m) => ChatMessage.fromMap(m))
+          .toList();
       final current = _conversations[index];
       final currentLast = current.lastMessage?.id;
-      final refreshedLast =
-          refreshedMessages.isNotEmpty ? refreshedMessages.last.id : null;
+      final refreshedLast = refreshedMessages.isNotEmpty
+          ? refreshedMessages.last.id
+          : null;
 
       if (current.messages.length == refreshedMessages.length &&
           currentLast == refreshedLast) {
@@ -141,9 +155,9 @@ class MessagesProvider extends ChangeNotifier {
 
       final index = _conversations.indexWhere((c) => c.id == conversationId);
       if (index != -1) {
-        final updatedMessages =
-            List<ChatMessage>.from(_conversations[index].messages)
-              ..add(ChatMessage.fromMap(result));
+        final updatedMessages = List<ChatMessage>.from(
+          _conversations[index].messages,
+        )..add(ChatMessage.fromMap(result));
 
         _conversations[index] = _copyConversationWithMessages(
           _conversations[index],
@@ -229,11 +243,24 @@ class MessagesProvider extends ChangeNotifier {
       );
 
       if (result != null) {
-        await loadConversations();
-        return _conversations.firstWhere(
-          (c) => c.id == result['id'],
-          orElse: () => _conversations.first,
-        );
+        final createdId = result['id'] as String;
+        final createdMap = await DB.getConversationById(createdId);
+        if (createdMap == null) return null;
+
+        final msgMaps = await DB.getMessages(createdId);
+        final messages = msgMaps.map((m) => ChatMessage.fromMap(m)).toList();
+        final conversation = Conversation.fromMap(createdMap, messages);
+
+        final index = _conversations.indexWhere((c) => c.id == createdId);
+        if (index != -1) {
+          _conversations[index] = conversation;
+        } else {
+          _conversations.add(conversation);
+        }
+        _sortConversations();
+        notifyListeners();
+
+        return conversation;
       }
       return null;
     } catch (e) {
@@ -278,25 +305,28 @@ class MessagesProvider extends ChangeNotifier {
 
   /// Mark messages in a conversation as read and also mark related notifications as read
   /// This links the unread message count to notifications to keep them in sync
-  Future<void> markAsReadWithNotifications(String conversationId, Function(String) markNotificationRead) async {
+  Future<void> markAsReadWithNotifications(
+    String conversationId,
+    Function(String) markNotificationRead,
+  ) async {
     if (_currentUserId == null) return;
 
     try {
       // First mark messages as read
       await DB.markMessagesAsRead(conversationId, _currentUserId!);
-      
+
       // Find all unread message notifications for this conversation and mark them as read
       final notifications = await DB.getNotifications(_currentUserId!);
       for (final notif in notifications) {
-        if (notif['related_id'] == conversationId && 
-            notif['type'] == 'newMessage' && 
+        if (notif['related_id'] == conversationId &&
+            notif['type'] == 'newMessage' &&
             notif['is_read'] == false) {
           await DB.markNotificationAsRead(notif['id'] as String);
           // Also update local notification state if the provider is available
           markNotificationRead(notif['id'] as String);
         }
       }
-      
+
       await loadConversations();
     } catch (e) {
       print('Failed to mark as read: $e');

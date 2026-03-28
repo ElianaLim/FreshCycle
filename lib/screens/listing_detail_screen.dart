@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:hugeicons/hugeicons.dart';
 import '../models/listing.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -21,14 +22,12 @@ class ListingDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Watch the provider to keep the saved icon updated
-    final currentListing = context.watch<ListingProvider>().listings.firstWhere(
-      (l) => l.id == listing.id,
-      orElse: () => listing,
-    );
+    final listingProvider = context.watch<ListingProvider>();
+    final currentListing = listingProvider.findById(listing.id) ?? listing;
     final currentUserId = context.watch<AuthProvider>().user?.id;
     final isOwnListing =
         currentUserId != null && currentListing.seller.id == currentUserId;
+    final isRequest = currentListing.type == ListingType.requesting;
 
     final discountPct = currentListing.discountPercent.round();
 
@@ -205,7 +204,88 @@ class ListingDetailScreen extends StatelessWidget {
                   const Divider(height: 1, color: FreshCycleTheme.borderColor),
                   const SizedBox(height: 24),
 
-                  // Seller Info Profile Box
+                  // Description Section
+                  const Text(
+                    'Description',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: FreshCycleTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    currentListing.description,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: FreshCycleTheme.textSecondary,
+                      height: 1.6,
+                    ),
+                  ),
+                  if (isRequest) ...[
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Request Note',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: FreshCycleTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: FreshCycleTheme.surfaceGray,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        (currentListing.note != null &&
+                                currentListing.note!.trim().isNotEmpty)
+                            ? currentListing.note!
+                            : 'No note provided.',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: FreshCycleTheme.textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Preferred Receiving Method',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: FreshCycleTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: FreshCycleTheme.primaryLight,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        currentListing.dealLocation?.isNotEmpty == true
+                            ? currentListing.dealLocation!
+                            : 'Not specified',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: FreshCycleTheme.primaryDark,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+
+                  // User section below description
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -258,26 +338,6 @@ class ListingDetailScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
-
-                  // Description Section
-                  const Text(
-                    'Description',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: FreshCycleTheme.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    currentListing.description,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      color: FreshCycleTheme.textSecondary,
-                      height: 1.6,
-                    ),
-                  ),
 
                   // Bottom spacing so content doesn't get hidden behind the floating bottom bar
                   const SizedBox(height: 100),
@@ -316,8 +376,8 @@ class ListingDetailScreen extends StatelessWidget {
                         size: 18,
                         color: Colors.white,
                       ),
-                      label: const Text(
-                        'Buy',
+                      label: Text(
+                        isRequest ? 'Offer' : 'Buy',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -340,8 +400,8 @@ class ListingDetailScreen extends StatelessWidget {
                         Icons.chat_bubble_outline_rounded,
                         size: 18,
                       ),
-                      label: const Text(
-                        'Message',
+                      label: Text(
+                        isRequest ? 'Message requester' : 'Message',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -380,13 +440,13 @@ class ListingDetailScreen extends StatelessWidget {
   }
 
   Widget _buildPlaceholder(String category) {
-    IconData icon;
+    dynamic icon;
     switch (category.toLowerCase()) {
       case 'produce':
         icon = Icons.eco_outlined;
         break;
       case 'dairy':
-        icon = Icons.egg_outlined;
+        icon = HugeIcons.strokeRoundedMilkBottle;
         break;
       case 'bakery':
         icon = Icons.bakery_dining_outlined;
@@ -401,9 +461,21 @@ class ListingDetailScreen extends StatelessWidget {
     return Container(
       width: double.infinity,
       color: FreshCycleTheme.surfaceGray,
-      child: Center(
-        child: Icon(icon, size: 80, color: FreshCycleTheme.borderColor),
-      ),
+      child: Center(child: _buildCategoryIconWidget(icon)),
+    );
+  }
+
+  Widget _buildCategoryIconWidget(dynamic icon) {
+    if (icon is IconData) {
+      return Icon(icon, size: 80, color: FreshCycleTheme.borderColor);
+    }
+    if (icon is List<List<dynamic>>) {
+      return HugeIcon(icon: icon, size: 80, color: FreshCycleTheme.borderColor);
+    }
+    return const Icon(
+      Icons.shopping_bag_outlined,
+      size: 80,
+      color: FreshCycleTheme.borderColor,
     );
   }
 }

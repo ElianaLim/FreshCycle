@@ -5,17 +5,18 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import '../models/listing.dart';
 import '../models/messages.dart';
-import '../data/sample_data.dart';
 import '../theme/app_theme.dart';
 import '../widgets/selling_card.dart';
 import '../widgets/request_card.dart';
 import 'messages_screen.dart';
 import 'post_listing_screen.dart';
+import 'post_request_screen.dart';
 import 'package:provider/provider.dart';
 import '../providers/listing_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/messages_provider.dart';
 import 'listing_detail_screen.dart';
+import 'request_detail_screen.dart';
 import 'saved_items_screen.dart';
 
 class MarketplaceScreen extends StatefulWidget {
@@ -29,6 +30,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _selectedCategory = 'All';
+  String _selectedRequestStatus = 'All';
+  String _selectedRequestCategory = 'All';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
@@ -63,12 +66,14 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
 
   List<String> get _sellingCategories => FreshCycleTheme.foodCategories;
 
-  final List<String> _requestCategories = [
+  List<String> get _requestStatusFilters => const [
     'All',
     'Urgent',
     'Nearby',
     'No offers',
   ];
+
+  List<String> get _requestCategories => FreshCycleTheme.foodCategories;
 
   @override
   void initState() {
@@ -77,6 +82,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
     _tabController.addListener(() {
       setState(() {
         _selectedCategory = 'All';
+        _selectedRequestStatus = 'All';
+        _selectedRequestCategory = 'All';
       });
     });
   }
@@ -114,8 +121,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
   }
 
   List<Listing> get _filteredRequests {
-    List<Listing> requests = sampleRequests;
-    switch (_selectedCategory) {
+    List<Listing> requests = context.watch<ListingProvider>().requests;
+    switch (_selectedRequestStatus) {
       case 'Urgent':
         requests = requests
             .where((r) => r.urgency == UrgencyLevel.critical)
@@ -127,6 +134,18 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
       case 'No offers':
         requests = requests.where((r) => (r.offerCount ?? 0) == 0).toList();
         break;
+      case 'All':
+        break;
+    }
+
+    if (_selectedRequestCategory != 'All') {
+      requests = requests
+          .where(
+            (r) =>
+                r.category.toLowerCase() ==
+                _selectedRequestCategory.toLowerCase(),
+          )
+          .toList();
     }
     if (_searchQuery.isNotEmpty) {
       requests = requests
@@ -152,7 +171,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
     }
 
     final messagesProvider = context.read<MessagesProvider>();
-    await messagesProvider.initialize(auth.user!.id);
+    messagesProvider.setCurrentUser(auth.user!.id);
 
     final conversation = await messagesProvider.startConversation(
       participantId: listing.seller.id,
@@ -187,8 +206,69 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
     );
   }
 
-  void _showOfferSheet(BuildContext context, Listing listing) {
-    showModalBottomSheet(
+  Future<void> _openRequestConversation(
+    BuildContext context,
+    Listing request, {
+    bool fromRequestDetail = false,
+  }) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to send messages.')),
+      );
+      return;
+    }
+
+    final messagesProvider = context.read<MessagesProvider>();
+    messagesProvider.setCurrentUser(auth.user!.id);
+
+    final conversation = await messagesProvider.startConversation(
+      participantId: request.seller.id,
+      participantName: request.seller.name,
+      participantInitials: request.seller.initials,
+      participantIsVerified: request.seller.isVerified,
+      participantBarangay: request.seller.barangay,
+      context: ConversationContext.request,
+      relatedListingId: request.id,
+      relatedListingTitle: request.title,
+      initialMessage: null,
+    );
+
+    if (!context.mounted || conversation == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          conversation: conversation,
+          currentUserId: auth.user!.id,
+          showListingPreview: fromRequestDetail,
+          quickQuestions: fromRequestDetail
+              ? const [
+                  'Can you meet today?',
+                  'What quantity do you need?',
+                  'Where is the pickup point?',
+                ]
+              : const [],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showOfferSheet(
+    BuildContext context,
+    Listing listing, {
+    bool fromRequestDetail = false,
+  }) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to send offers.')),
+      );
+      return;
+    }
+
+    final offerText = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
@@ -196,6 +276,62 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => _OfferSheet(listing: listing),
+    );
+
+    if (!context.mounted) return;
+    if (offerText == null || offerText.trim().isEmpty) return;
+
+    final messagesProvider = context.read<MessagesProvider>();
+    messagesProvider.setCurrentUser(auth.user!.id);
+
+    final conversation = await messagesProvider.startConversation(
+      participantId: listing.seller.id,
+      participantName: listing.seller.name,
+      participantInitials: listing.seller.initials,
+      participantIsVerified: listing.seller.isVerified,
+      participantBarangay: listing.seller.barangay,
+      context: ConversationContext.request,
+      relatedListingId: listing.id,
+      relatedListingTitle: listing.title,
+      initialMessage: null,
+    );
+
+    if (!context.mounted || conversation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open chat right now.')),
+      );
+      return;
+    }
+
+    final sent = await messagesProvider.sendMessage(
+      conversationId: conversation.id,
+      text: '[OFFER] ${offerText.trim()}',
+    );
+
+    if (!context.mounted) return;
+    if (!sent) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to send offer. Please retry.')),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          conversation: conversation,
+          currentUserId: auth.user!.id,
+          showListingPreview: true,
+          quickQuestions: fromRequestDetail
+              ? const [
+                  'Can you meet today?',
+                  'What quantity do you need?',
+                  'Where is the pickup point?',
+                ]
+              : const [],
+        ),
+      ),
     );
   }
 
@@ -229,7 +365,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
               Navigator.pop(ctx);
 
               final messagesProvider = context.read<MessagesProvider>();
-              await messagesProvider.initialize(auth.user!.id);
+              messagesProvider.setCurrentUser(auth.user!.id);
 
               final conversation = await messagesProvider.startConversation(
                 participantId: listing.seller.id,
@@ -331,9 +467,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
             backgroundColor: Colors.white,
-            floating: true,
-            snap: true,
-            pinned: false,
+            floating: false,
+            snap: false,
+            pinned: true,
             elevation: 0,
             scrolledUnderElevation: 0,
             title: Column(
@@ -414,7 +550,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
                       controller: _searchController,
                       onChanged: (v) => setState(() => _searchQuery = v),
                       decoration: InputDecoration(
-                        hintText: 'Search near-expiry food...',
+                        hintText: 'Search listings and requests...',
                         prefixIcon: const Icon(
                           Icons.search_rounded,
                           size: 20,
@@ -467,7 +603,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
                   TabBar(
                     controller: _tabController,
                     tabs: const [
-                      Tab(text: 'Near-expiry listings'),
+                      Tab(text: 'Listings'),
                       Tab(text: 'Requests'),
                     ],
                     labelColor: FreshCycleTheme.primary,
@@ -507,26 +643,50 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
             _RequestsTab(
               requests: _filteredRequests,
               categories: _requestCategories,
-              selectedCategory: _selectedCategory,
-              onCategorySelected: (c) => setState(() => _selectedCategory = c),
+              statusFilters: _requestStatusFilters,
+              selectedStatus: _selectedRequestStatus,
+              selectedCategory: _selectedRequestCategory,
+              onStatusSelected: (v) =>
+                  setState(() => _selectedRequestStatus = v),
+              onCategorySelected: (c) =>
+                  setState(() => _selectedRequestCategory = c),
               onOffer: (l) => _showOfferSheet(context, l),
+              onOfferFromDetail: (l) =>
+                  _showOfferSheet(context, l, fromRequestDetail: true),
+              onMessageFromDetail: (l) =>
+                  _openRequestConversation(context, l, fromRequestDetail: true),
             ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const PostListingScreen()),
-          );
+          if (_tabController.index == 0) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const PostListingScreen(),
+              ),
+            );
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const PostRequestScreen(),
+              ),
+            );
+          }
         },
         backgroundColor: FreshCycleTheme.primary,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text(
-          'Post listing',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        icon: Icon(
+          _tabController.index == 0
+              ? Icons.add_rounded
+              : Icons.playlist_add_rounded,
+        ),
+        label: Text(
+          _tabController.index == 0 ? 'Post listing' : 'Make request',
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -600,11 +760,19 @@ class _CategoryFilter extends StatelessWidget {
   final List<String> categories;
   final String selected;
   final ValueChanged<String> onSelected;
+  final Color selectedColor;
+  final Color selectedTextColor;
+  final Color unselectedBackgroundColor;
+  final Color unselectedTextColor;
 
   const _CategoryFilter({
     required this.categories,
     required this.selected,
     required this.onSelected,
+    this.selectedColor = FreshCycleTheme.primary,
+    this.selectedTextColor = Colors.white,
+    this.unselectedBackgroundColor = Colors.white,
+    this.unselectedTextColor = FreshCycleTheme.textSecondary,
   });
 
   @override
@@ -625,11 +793,11 @@ class _CategoryFilter extends StatelessWidget {
               duration: const Duration(milliseconds: 150),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
-                color: isSelected ? FreshCycleTheme.primary : Colors.white,
+                color: isSelected ? selectedColor : unselectedBackgroundColor,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: isSelected
-                      ? FreshCycleTheme.primary
+                      ? selectedColor
                       : FreshCycleTheme.borderColor,
                   width: 0.5,
                 ),
@@ -639,9 +807,7 @@ class _CategoryFilter extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: isSelected
-                      ? Colors.white
-                      : FreshCycleTheme.textSecondary,
+                  color: isSelected ? selectedTextColor : unselectedTextColor,
                 ),
               ),
             ),
@@ -741,16 +907,26 @@ class _ListingsTab extends StatelessWidget {
 class _RequestsTab extends StatelessWidget {
   final List<Listing> requests;
   final List<String> categories;
+  final List<String> statusFilters;
+  final String selectedStatus;
   final String selectedCategory;
+  final ValueChanged<String> onStatusSelected;
   final ValueChanged<String> onCategorySelected;
   final void Function(Listing) onOffer;
+  final void Function(Listing) onOfferFromDetail;
+  final void Function(Listing) onMessageFromDetail;
 
   const _RequestsTab({
     required this.requests,
     required this.categories,
+    required this.statusFilters,
+    required this.selectedStatus,
     required this.selectedCategory,
+    required this.onStatusSelected,
     required this.onCategorySelected,
     required this.onOffer,
+    required this.onOfferFromDetail,
+    required this.onMessageFromDetail,
   });
 
   @override
@@ -763,9 +939,23 @@ class _RequestsTab extends StatelessWidget {
               const _StatsBar(),
               const SizedBox(height: 12),
               _CategoryFilter(
+                categories: statusFilters,
+                selected: selectedStatus,
+                onSelected: onStatusSelected,
+                selectedColor: FreshCycleTheme.requestColor,
+                selectedTextColor: Colors.white,
+                unselectedBackgroundColor: FreshCycleTheme.requestBg,
+                unselectedTextColor: FreshCycleTheme.requestColor,
+              ),
+              const SizedBox(height: 8),
+              _CategoryFilter(
                 categories: categories,
                 selected: selectedCategory,
                 onSelected: onCategorySelected,
+                selectedColor: FreshCycleTheme.primary,
+                selectedTextColor: Colors.white,
+                unselectedBackgroundColor: Colors.white,
+                unselectedTextColor: FreshCycleTheme.textSecondary,
               ),
               const SizedBox(height: 12),
             ],
@@ -789,7 +979,18 @@ class _RequestsTab extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: RequestCard(
                     listing: requests[i],
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => RequestDetailScreen(
+                            request: requests[i],
+                            onOffer: () => onOfferFromDetail(requests[i]),
+                            onMessage: () => onMessageFromDetail(requests[i]),
+                          ),
+                        ),
+                      );
+                    },
                     onOffer: () => onOffer(requests[i]),
                   ),
                 ),
@@ -1030,10 +1231,23 @@ class _MessageSheetState extends State<_MessageSheet> {
   }
 }
 
-class _OfferSheet extends StatelessWidget {
+class _OfferSheet extends StatefulWidget {
   final Listing listing;
 
   const _OfferSheet({required this.listing});
+
+  @override
+  State<_OfferSheet> createState() => _OfferSheetState();
+}
+
+class _OfferSheetState extends State<_OfferSheet> {
+  final TextEditingController _offerController = TextEditingController();
+
+  @override
+  void dispose() {
+    _offerController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1067,7 +1281,7 @@ class _OfferSheet extends StatelessWidget {
               ),
             ),
             Text(
-              'Responding to: ${listing.title}',
+              'Responding to: ${widget.listing.title}',
               style: const TextStyle(
                 fontSize: 13,
                 color: FreshCycleTheme.textSecondary,
@@ -1075,6 +1289,14 @@ class _OfferSheet extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             TextField(
+              controller: _offerController,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) {
+                final offerText = _offerController.text.trim();
+                if (offerText.isNotEmpty) {
+                  Navigator.pop(context, offerText);
+                }
+              },
               decoration: InputDecoration(
                 hintText: 'Describe what you can offer...',
                 border: OutlineInputBorder(
@@ -1108,7 +1330,11 @@ class _OfferSheet extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  final offerText = _offerController.text.trim();
+                  if (offerText.isEmpty) return;
+                  Navigator.pop(context, offerText);
+                },
                 style: FilledButton.styleFrom(
                   backgroundColor: FreshCycleTheme.primary,
                   shape: RoundedRectangleBorder(

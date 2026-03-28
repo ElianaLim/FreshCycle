@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:hugeicons/hugeicons.dart';
 import '../theme/app_theme.dart';
 import '../models/listing.dart';
 import '../models/pantry_item.dart';
@@ -20,7 +21,11 @@ class _PantryScreenState extends State<PantryScreen> {
 
   // Logic to determine urgency based on date
   UrgencyLevel _calculateUrgency(DateTime expiry) {
-    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
     final expiryDay = DateTime(expiry.year, expiry.month, expiry.day);
     final diff = expiryDay.difference(today).inDays;
     if (diff <= 1) return UrgencyLevel.critical;
@@ -52,24 +57,35 @@ class _PantryScreenState extends State<PantryScreen> {
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
   }
+
   // 3. The Interactive Bottom Sheet for Adding & Editing
   void _showAddItemSheet({PantryItem? existingItem, int? index}) {
     final isEditing = existingItem != null;
     final nameController = TextEditingController(text: existingItem?.name);
-    final costController = TextEditingController(text: existingItem?.cost?.toString());
-    final relativeDaysController = TextEditingController(
-      text: (existingItem != null && existingItem.expiryType == ExpiryType.relative) 
-        ? existingItem.relativeDays.toString() 
-        : '7',
+    final costController = TextEditingController(
+      text: existingItem?.cost?.toString(),
     );
-    
+    final relativeDaysController = TextEditingController(
+      text:
+          (existingItem != null &&
+              existingItem.expiryType == ExpiryType.relative)
+          ? existingItem.relativeDays.toString()
+          : '7',
+    );
+
     // Default to 7 days from now if not editing
-    DateTime selectedDate = existingItem?.expiryDate ?? DateTime.now().add(const Duration(days: 7));
-    String selectedCategory = (existingItem != null && _categories.contains(existingItem.category))
+    DateTime selectedDate =
+        existingItem?.expiryDate ?? DateTime.now().add(const Duration(days: 7));
+    String selectedCategory =
+        (existingItem != null && _categories.contains(existingItem.category))
         ? existingItem.category
         : 'Other';
-    ExpiryType selectedExpiryType = existingItem != null ? existingItem.expiryType : ExpiryType.absolute;
-    int selectedRelativeDays = existingItem != null ? existingItem.relativeDays : 7;
+    ExpiryType selectedExpiryType = existingItem != null
+        ? existingItem.expiryType
+        : ExpiryType.absolute;
+    int selectedRelativeDays = existingItem != null
+        ? existingItem.relativeDays
+        : 7;
 
     showModalBottomSheet(
       context: context,
@@ -100,7 +116,7 @@ class _PantryScreenState extends State<PantryScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                
+
                 // Item Name with Embedded Barcode Scanner
                 TextField(
                   controller: nameController,
@@ -108,7 +124,10 @@ class _PantryScreenState extends State<PantryScreen> {
                     labelText: 'Item Name',
                     hintText: 'e.g. Fresh Milk',
                     suffixIcon: IconButton(
-                      icon: const Icon(Icons.barcode_reader, color: FreshCycleTheme.primary),
+                      icon: const Icon(
+                        Icons.barcode_reader,
+                        color: FreshCycleTheme.primary,
+                      ),
                       onPressed: () async {
                         final status = await Permission.camera.request();
                         if (status.isPermanentlyDenied) {
@@ -120,7 +139,9 @@ class _PantryScreenState extends State<PantryScreen> {
                           var result = await BarcodeScanner.scan();
                           if (result.type == ResultType.Barcode) {
                             setSheetState(() {
-                              nameController.text = lookupScannedName(result.rawContent);
+                              nameController.text = lookupScannedName(
+                                result.rawContent,
+                              );
                             });
                           }
                         } catch (e) {
@@ -149,7 +170,9 @@ class _PantryScreenState extends State<PantryScreen> {
                 // Cost
                 TextField(
                   controller: costController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(
                     labelText: 'Cost',
                     prefixText: '₱ ',
@@ -157,11 +180,14 @@ class _PantryScreenState extends State<PantryScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Expiry Type Toggle (Absolute Date vs Relative Days)
                 Container(
                   decoration: BoxDecoration(
-                    border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
+                    border: Border.all(
+                      color: FreshCycleTheme.borderColor,
+                      width: 0.5,
+                    ),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Column(
@@ -173,12 +199,19 @@ class _PantryScreenState extends State<PantryScreen> {
                           children: [
                             Expanded(
                               child: GestureDetector(
-                                onTap: () => setSheetState(() => selectedExpiryType = ExpiryType.absolute),
+                                onTap: () => setSheetState(
+                                  () =>
+                                      selectedExpiryType = ExpiryType.absolute,
+                                ),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: selectedExpiryType == ExpiryType.absolute 
-                                        ? FreshCycleTheme.primary 
+                                    color:
+                                        selectedExpiryType ==
+                                            ExpiryType.absolute
+                                        ? FreshCycleTheme.primary
                                         : Colors.transparent,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -188,8 +221,10 @@ class _PantryScreenState extends State<PantryScreen> {
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
-                                        color: selectedExpiryType == ExpiryType.absolute 
-                                            ? Colors.white 
+                                        color:
+                                            selectedExpiryType ==
+                                                ExpiryType.absolute
+                                            ? Colors.white
                                             : FreshCycleTheme.textSecondary,
                                       ),
                                     ),
@@ -200,12 +235,19 @@ class _PantryScreenState extends State<PantryScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: GestureDetector(
-                                onTap: () => setSheetState(() => selectedExpiryType = ExpiryType.relative),
+                                onTap: () => setSheetState(
+                                  () =>
+                                      selectedExpiryType = ExpiryType.relative,
+                                ),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: selectedExpiryType == ExpiryType.relative 
-                                        ? FreshCycleTheme.primary 
+                                    color:
+                                        selectedExpiryType ==
+                                            ExpiryType.relative
+                                        ? FreshCycleTheme.primary
                                         : Colors.transparent,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -215,8 +257,10 @@ class _PantryScreenState extends State<PantryScreen> {
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
-                                        color: selectedExpiryType == ExpiryType.relative 
-                                            ? Colors.white 
+                                        color:
+                                            selectedExpiryType ==
+                                                ExpiryType.relative
+                                            ? Colors.white
                                             : FreshCycleTheme.textSecondary,
                                       ),
                                     ),
@@ -230,18 +274,41 @@ class _PantryScreenState extends State<PantryScreen> {
                       // Content based on selected type
                       if (selectedExpiryType == ExpiryType.absolute)
                         ListTile(
-                          title: const Text("Expiry Date", style: TextStyle(fontSize: 14, color: FreshCycleTheme.textSecondary)),
+                          title: const Text(
+                            "Expiry Date",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: FreshCycleTheme.textSecondary,
+                            ),
+                          ),
                           subtitle: Text(
                             "${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}",
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: FreshCycleTheme.textPrimary),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: FreshCycleTheme.textPrimary,
+                            ),
                           ),
-                          trailing: const Icon(Icons.calendar_today_rounded, color: FreshCycleTheme.primary),
+                          trailing: const Icon(
+                            Icons.calendar_today_rounded,
+                            color: FreshCycleTheme.primary,
+                          ),
                           onTap: () async {
                             final picked = await showDatePicker(
                               context: context,
-                              initialDate: DateTime(selectedDate.year, selectedDate.month, selectedDate.day),
-                              firstDate: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
-                              lastDate: DateTime.now().add(const Duration(days: 3650)),
+                              initialDate: DateTime(
+                                selectedDate.year,
+                                selectedDate.month,
+                                selectedDate.day,
+                              ),
+                              firstDate: DateTime(
+                                DateTime.now().year,
+                                DateTime.now().month,
+                                DateTime.now().day,
+                              ),
+                              lastDate: DateTime.now().add(
+                                const Duration(days: 3650),
+                              ),
                               builder: (context, child) {
                                 return Theme(
                                   data: Theme.of(context).copyWith(
@@ -270,9 +337,13 @@ class _PantryScreenState extends State<PantryScreen> {
                                   onChanged: (value) {
                                     final days = int.tryParse(value);
                                     if (days != null && days > 0) {
-                                      setSheetState(() => selectedRelativeDays = days);
+                                      setSheetState(
+                                        () => selectedRelativeDays = days,
+                                      );
                                     } else if (days != null && days <= 0) {
-                                      setSheetState(() => selectedRelativeDays = 1);
+                                      setSheetState(
+                                        () => selectedRelativeDays = 1,
+                                      );
                                       relativeDaysController.text = '1';
                                     }
                                   },
@@ -286,7 +357,9 @@ class _PantryScreenState extends State<PantryScreen> {
                               Expanded(
                                 flex: 2,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
                                   child: Text(
                                     'day${selectedRelativeDays == 1 ? '' : 's'} from now',
                                     style: const TextStyle(
@@ -304,7 +377,7 @@ class _PantryScreenState extends State<PantryScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Save/Update Button
                 SizedBox(
                   width: double.infinity,
@@ -313,33 +386,53 @@ class _PantryScreenState extends State<PantryScreen> {
                     onPressed: () {
                       if (nameController.text.trim().isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please enter an item name')),
+                          const SnackBar(
+                            content: Text('Please enter an item name'),
+                          ),
                         );
                         return;
                       }
-                      
+
                       // Validate expiry date is in the future
-                      final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-                      if (selectedExpiryType == ExpiryType.absolute && DateTime(selectedDate.year, selectedDate.month, selectedDate.day).isBefore(today)) {
+                      final today = DateTime(
+                        DateTime.now().year,
+                        DateTime.now().month,
+                        DateTime.now().day,
+                      );
+                      if (selectedExpiryType == ExpiryType.absolute &&
+                          DateTime(
+                            selectedDate.year,
+                            selectedDate.month,
+                            selectedDate.day,
+                          ).isBefore(today)) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Expiry date must be today or in the future')),
+                          const SnackBar(
+                            content: Text(
+                              'Expiry date must be today or in the future',
+                            ),
+                          ),
                         );
                         return;
                       }
-                      if (selectedExpiryType == ExpiryType.relative && selectedRelativeDays <= 0) {
+                      if (selectedExpiryType == ExpiryType.relative &&
+                          selectedRelativeDays <= 0) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Days must be at least 1')),
+                          const SnackBar(
+                            content: Text('Days must be at least 1'),
+                          ),
                         );
                         return;
                       }
-                      
+
                       // Calculate urgency based on expiry type
                       final urgency = selectedExpiryType == ExpiryType.absolute
                           ? _calculateUrgency(selectedDate)
                           : _calculateUrgencyFromRelative(selectedRelativeDays);
 
                       final newItem = PantryItem(
-                        id: isEditing ? existingItem.id : DateTime.now().millisecondsSinceEpoch.toString(),
+                        id: isEditing
+                            ? existingItem.id
+                            : DateTime.now().millisecondsSinceEpoch.toString(),
                         name: nameController.text.trim(),
                         category: selectedCategory,
                         expiryDate: selectedDate,
@@ -348,7 +441,7 @@ class _PantryScreenState extends State<PantryScreen> {
                         cost: double.tryParse(costController.text),
                         urgency: urgency,
                       );
-                      
+
                       setState(() {
                         if (isEditing) {
                           myPantry[index!] = newItem;
@@ -357,16 +450,21 @@ class _PantryScreenState extends State<PantryScreen> {
                         }
                         _sortPantry();
                       });
-                      
+
                       Navigator.pop(context);
                     },
                     style: FilledButton.styleFrom(
                       backgroundColor: FreshCycleTheme.primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: Text(
                       isEditing ? 'Update Item' : 'Add to Pantry',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -404,16 +502,24 @@ class _PantryScreenState extends State<PantryScreen> {
         _sortPantry();
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${item.name} deleted')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${item.name} deleted')));
       }
     }
   }
 
   Color _progressBarColor(PantryItem item) {
-    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-    final expiry = DateTime(item.computedExpiryDate.year, item.computedExpiryDate.month, item.computedExpiryDate.day);
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
+    final expiry = DateTime(
+      item.computedExpiryDate.year,
+      item.computedExpiryDate.month,
+      item.computedExpiryDate.day,
+    );
     final daysLeft = expiry.difference(today).inDays;
     if (daysLeft <= 1) return FreshCycleTheme.urgencyCritical;
     if (daysLeft <= 3) return FreshCycleTheme.urgencySoon;
@@ -421,8 +527,16 @@ class _PantryScreenState extends State<PantryScreen> {
   }
 
   double _progressValue(PantryItem item) {
-    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-    final expiry = DateTime(item.computedExpiryDate.year, item.computedExpiryDate.month, item.computedExpiryDate.day);
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
+    final expiry = DateTime(
+      item.computedExpiryDate.year,
+      item.computedExpiryDate.month,
+      item.computedExpiryDate.day,
+    );
     final daysLeft = expiry.difference(today).inDays.clamp(0, 9999);
     return (daysLeft / 7.0).clamp(0.0, 1.0);
   }
@@ -435,100 +549,141 @@ class _PantryScreenState extends State<PantryScreen> {
     return GestureDetector(
       onLongPress: () => _showAddItemSheet(existingItem: item, index: index),
       child: Container(
-      width: 140,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: urgencyBgColor(item.urgency),
-                  borderRadius: BorderRadius.circular(8),
+        width: 140,
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: urgencyBgColor(item.urgency),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: _buildCategoryIcon(
+                    item.categoryIcon,
+                    size: 18,
+                    color: urgencyColor(item.urgency),
+                  ),
                 ),
-                child: Icon(
-                  item.categoryIcon,
-                  size: 18,
-                  color: urgencyColor(item.urgency),
-                ),
-              ),
-              const Spacer(),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert_rounded, size: 18, color: FreshCycleTheme.textSecondary),
-                padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                onSelected: (value) {
-                  if (value == 'edit') {
-                    _showAddItemSheet(existingItem: item, index: index);
-                  } else if (value == 'delete') {
-                    _confirmDelete(item, index);
-                  } else if (value == 'list') {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Moving to marketplace... (Original Cost: ₱${item.cost ?? 0})'),
-                        backgroundColor: FreshCycleTheme.primary,
+                const Spacer(),
+                PopupMenuButton<String>(
+                  icon: const Icon(
+                    Icons.more_vert_rounded,
+                    size: 18,
+                    color: FreshCycleTheme.textSecondary,
+                  ),
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _showAddItemSheet(existingItem: item, index: index);
+                    } else if (value == 'delete') {
+                      _confirmDelete(item, index);
+                    } else if (value == 'list') {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Moving to marketplace... (Original Cost: ₱${item.cost ?? 0})',
+                          ),
+                          backgroundColor: FreshCycleTheme.primary,
+                        ),
+                      );
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 20),
+                          SizedBox(width: 12),
+                          Text('Edit'),
+                        ],
                       ),
-                    );
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(children: [Icon(Icons.edit_outlined, size: 20), SizedBox(width: 12), Text('Edit')]),
-                  ),
-                  const PopupMenuItem(
-                    value: 'list',
-                    child: Row(children: [Icon(Icons.storefront_outlined, size: 20), SizedBox(width: 12), Text('Make into listing')]),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(children: [Icon(Icons.delete_outline, size: 20, color: Colors.red), SizedBox(width: 12), Text('Delete', style: TextStyle(color: Colors.red))]),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            item.name,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: FreshCycleTheme.textPrimary),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const Spacer(),
-          Text(
-            item.daysLeft,
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: urgencyColor(item.urgency)),
-          ),
-          if (item.cost != null)
+                    ),
+                    const PopupMenuItem(
+                      value: 'list',
+                      child: Row(
+                        children: [
+                          Icon(Icons.storefront_outlined, size: 20),
+                          SizedBox(width: 12),
+                          Text('Make into listing'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            size: 20,
+                            color: Colors.red,
+                          ),
+                          SizedBox(width: 12),
+                          Text('Delete', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             Text(
-              '₱${item.cost!.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 11, color: FreshCycleTheme.textSecondary),
+              item.name,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: FreshCycleTheme.textPrimary,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 5,
-              backgroundColor: barColor.withValues(alpha: 0.15),
-              valueColor: AlwaysStoppedAnimation<Color>(barColor),
+            const Spacer(),
+            Text(
+              item.daysLeft,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: urgencyColor(item.urgency),
+              ),
             ),
-          ),
-        ],
+            if (item.cost != null)
+              Text(
+                '₱${item.cost!.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: FreshCycleTheme.textSecondary,
+                ),
+              ),
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 5,
+                backgroundColor: barColor.withValues(alpha: 0.15),
+                valueColor: AlwaysStoppedAnimation<Color>(barColor),
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -543,7 +698,10 @@ class _PantryScreenState extends State<PantryScreen> {
         decoration: BoxDecoration(
           color: FreshCycleTheme.urgencyCriticalBg,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: FreshCycleTheme.urgencyCritical.withValues(alpha: 0.3), width: 0.5),
+          border: Border.all(
+            color: FreshCycleTheme.urgencyCritical.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -555,16 +713,28 @@ class _PantryScreenState extends State<PantryScreen> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: FreshCycleTheme.urgencyCritical.withValues(alpha: 0.15),
+                    color: FreshCycleTheme.urgencyCritical.withValues(
+                      alpha: 0.15,
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(item.categoryIcon, size: 18, color: FreshCycleTheme.urgencyCritical),
+                  child: _buildCategoryIcon(
+                    item.categoryIcon,
+                    size: 18,
+                    color: FreshCycleTheme.urgencyCritical,
+                  ),
                 ),
                 const Spacer(),
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert_rounded, size: 18, color: FreshCycleTheme.textSecondary),
+                  icon: const Icon(
+                    Icons.more_vert_rounded,
+                    size: 18,
+                    color: FreshCycleTheme.textSecondary,
+                  ),
                   padding: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   onSelected: (value) {
                     if (value == 'edit') {
                       _showAddItemSheet(existingItem: item, index: index);
@@ -575,12 +745,28 @@ class _PantryScreenState extends State<PantryScreen> {
                   itemBuilder: (context) => [
                     const PopupMenuItem(
                       value: 'edit',
-                      child: Row(children: [Icon(Icons.edit_outlined, size: 20), SizedBox(width: 12), Text('Edit')]),
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 20),
+                          SizedBox(width: 12),
+                          Text('Edit'),
+                        ],
+                      ),
                     ),
                     const PopupMenuDivider(),
                     const PopupMenuItem(
                       value: 'delete',
-                      child: Row(children: [Icon(Icons.delete_outline, size: 20, color: Colors.red), SizedBox(width: 12), Text('Delete', style: TextStyle(color: Colors.red))]),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            size: 20,
+                            color: Colors.red,
+                          ),
+                          SizedBox(width: 12),
+                          Text('Delete', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -589,19 +775,30 @@ class _PantryScreenState extends State<PantryScreen> {
             const SizedBox(height: 8),
             Text(
               item.name,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: FreshCycleTheme.textPrimary),
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: FreshCycleTheme.textPrimary,
+              ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
             const Spacer(),
             const Text(
               'Expired',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: FreshCycleTheme.urgencyCritical),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: FreshCycleTheme.urgencyCritical,
+              ),
             ),
             if (item.cost != null)
               Text(
                 '₱${item.cost!.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 11, color: FreshCycleTheme.textSecondary),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: FreshCycleTheme.textSecondary,
+                ),
               ),
           ],
         ),
@@ -616,126 +813,197 @@ class _PantryScreenState extends State<PantryScreen> {
     return GestureDetector(
       onLongPress: () => _showAddItemSheet(existingItem: item, index: index),
       child: Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: FreshCycleTheme.borderColor, width: 0.5),
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            leading: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: urgencyBgColor(item.urgency),
-                borderRadius: BorderRadius.circular(10),
+        elevation: 0,
+        margin: const EdgeInsets.only(bottom: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(
+            color: FreshCycleTheme.borderColor,
+            width: 0.5,
+          ),
+        ),
+        child: Column(
+          children: [
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
               ),
-              child: Icon(
-                item.categoryIcon,
-                color: urgencyColor(item.urgency),
+              leading: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: urgencyBgColor(item.urgency),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: _buildCategoryIcon(
+                  item.categoryIcon,
+                  size: 24,
+                  color: urgencyColor(item.urgency),
+                ),
               ),
-            ),
-            title: Text(
-              item.name,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-            ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    item.daysLeft,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: urgencyColor(item.urgency),
-                      fontSize: 13,
-                    ),
-                  ),
-                  const Text(" • ", style: TextStyle(color: FreshCycleTheme.textHint)),
-                  Text(
-                    item.category,
-                    style: const TextStyle(color: FreshCycleTheme.textSecondary, fontSize: 12),
-                  ),
-                  if (item.cost != null) ...[
-                    const Text(" • ", style: TextStyle(color: FreshCycleTheme.textHint)),
+              title: Text(
+                item.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
                     Text(
-                      '₱${item.cost!.toStringAsFixed(2)}',
-                      style: const TextStyle(color: FreshCycleTheme.textSecondary, fontSize: 12),
+                      item.daysLeft,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: urgencyColor(item.urgency),
+                        fontSize: 13,
+                      ),
                     ),
+                    const Text(
+                      " • ",
+                      style: TextStyle(color: FreshCycleTheme.textHint),
+                    ),
+                    Text(
+                      item.category,
+                      style: const TextStyle(
+                        color: FreshCycleTheme.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (item.cost != null) ...[
+                      const Text(
+                        " • ",
+                        style: TextStyle(color: FreshCycleTheme.textHint),
+                      ),
+                      Text(
+                        '₱${item.cost!.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: FreshCycleTheme.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            trailing: PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert_rounded, color: FreshCycleTheme.textSecondary),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              onSelected: (value) {
-                if (value == 'edit') {
-                  _showAddItemSheet(existingItem: item, index: index);
-                } else if (value == 'delete') {
-                  _confirmDelete(item, index);
-                } else if (value == 'list') {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Moving to marketplace... (Original Cost: ₱${item.cost ?? 0})'),
-                      backgroundColor: FreshCycleTheme.primary,
-                    ),
+              trailing: PopupMenuButton<String>(
+                icon: const Icon(
+                  Icons.more_vert_rounded,
+                  color: FreshCycleTheme.textSecondary,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    _showAddItemSheet(existingItem: item, index: index);
+                  } else if (value == 'delete') {
+                    _confirmDelete(item, index);
+                  } else if (value == 'list') {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Moving to marketplace... (Original Cost: ₱${item.cost ?? 0})',
+                        ),
+                        backgroundColor: FreshCycleTheme.primary,
+                      ),
+                    );
+                  }
+                },
+                itemBuilder: (context) {
+                  final today = DateTime(
+                    DateTime.now().year,
+                    DateTime.now().month,
+                    DateTime.now().day,
                   );
-                }
-              },
-              itemBuilder: (context) {
-                final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-                final expiryDay = DateTime(item.computedExpiryDate.year, item.computedExpiryDate.month, item.computedExpiryDate.day);
-                final isExpired = expiryDay.isBefore(today);
-                return [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(children: [Icon(Icons.edit_outlined, size: 20), SizedBox(width: 12), Text('Edit')]),
-                  ),
-                  if (!isExpired)
+                  final expiryDay = DateTime(
+                    item.computedExpiryDate.year,
+                    item.computedExpiryDate.month,
+                    item.computedExpiryDate.day,
+                  );
+                  final isExpired = expiryDay.isBefore(today);
+                  return [
                     const PopupMenuItem(
-                      value: 'list',
-                      child: Row(children: [Icon(Icons.storefront_outlined, size: 20), SizedBox(width: 12), Text('Make into listing')]),
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 20),
+                          SizedBox(width: 12),
+                          Text('Edit'),
+                        ],
+                      ),
                     ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(children: [Icon(Icons.delete_outline, size: 20, color: Colors.red), SizedBox(width: 12), Text('Delete', style: TextStyle(color: Colors.red))]),
-                  ),
-                ];
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 5,
-                backgroundColor: barColor.withValues(alpha: 0.15),
-                valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                    if (!isExpired)
+                      const PopupMenuItem(
+                        value: 'list',
+                        child: Row(
+                          children: [
+                            Icon(Icons.storefront_outlined, size: 20),
+                            SizedBox(width: 12),
+                            Text('Make into listing'),
+                          ],
+                        ),
+                      ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            size: 20,
+                            color: Colors.red,
+                          ),
+                          SizedBox(width: 12),
+                          Text('Delete', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                  ];
+                },
               ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 5,
+                  backgroundColor: barColor.withValues(alpha: 0.15),
+                  valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 
   Widget _buildPantryList() {
-    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
     final expired = myPantry.where((i) {
-      final expiry = DateTime(i.expiryDate.year, i.expiryDate.month, i.expiryDate.day);
+      final expiry = DateTime(
+        i.expiryDate.year,
+        i.expiryDate.month,
+        i.expiryDate.day,
+      );
       return expiry.isBefore(today);
     }).toList();
     final expiring = myPantry
-        .where((i) => i.urgency == UrgencyLevel.critical || i.urgency == UrgencyLevel.soon)
+        .where(
+          (i) =>
+              i.urgency == UrgencyLevel.critical ||
+              i.urgency == UrgencyLevel.soon,
+        )
         .where((i) => !expired.contains(i))
         .toList();
     final allRest = myPantry.toList();
@@ -751,7 +1019,11 @@ class _PantryScreenState extends State<PantryScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Row(
                 children: [
-                  const Icon(Icons.cancel_outlined, size: 16, color: FreshCycleTheme.urgencyCritical),
+                  const Icon(
+                    Icons.cancel_outlined,
+                    size: 16,
+                    color: FreshCycleTheme.urgencyCritical,
+                  ),
                   const SizedBox(width: 6),
                   const Expanded(
                     child: Text(
@@ -771,12 +1043,19 @@ class _PantryScreenState extends State<PantryScreen> {
                         context: context,
                         builder: (ctx) => AlertDialog(
                           title: const Text('Clear all expired?'),
-                          content: const Text('This will remove all expired items from your pantry.'),
+                          content: const Text(
+                            'This will remove all expired items from your pantry.',
+                          ),
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel'),
+                            ),
                             TextButton(
                               onPressed: () => Navigator.pop(ctx, true),
-                              style: TextButton.styleFrom(foregroundColor: Colors.red),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.red,
+                              ),
                               child: const Text('Clear all'),
                             ),
                           ],
@@ -785,7 +1064,11 @@ class _PantryScreenState extends State<PantryScreen> {
                       if (confirmed == true) {
                         setState(() {
                           myPantry.removeWhere((i) {
-                            final expiry = DateTime(i.expiryDate.year, i.expiryDate.month, i.expiryDate.day);
+                            final expiry = DateTime(
+                              i.expiryDate.year,
+                              i.expiryDate.month,
+                              i.expiryDate.day,
+                            );
                             return expiry.isBefore(today);
                           });
                           _sortPantry();
@@ -794,19 +1077,30 @@ class _PantryScreenState extends State<PantryScreen> {
                     },
                     child: const Text(
                       'Clear all',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: FreshCycleTheme.urgencyCritical),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: FreshCycleTheme.urgencyCritical,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: FreshCycleTheme.urgencyCriticalBg,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '${expired.length}',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: FreshCycleTheme.urgencyCritical),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: FreshCycleTheme.urgencyCritical,
+                      ),
                     ),
                   ),
                 ],
@@ -831,7 +1125,11 @@ class _PantryScreenState extends State<PantryScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded, size: 16, color: FreshCycleTheme.urgencySoon),
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    size: 16,
+                    color: FreshCycleTheme.urgencySoon,
+                  ),
                   const SizedBox(width: 6),
                   const Expanded(
                     child: Text(
@@ -846,14 +1144,21 @@ class _PantryScreenState extends State<PantryScreen> {
                   ),
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: FreshCycleTheme.urgencySoonBg,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '${expiring.length}',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: FreshCycleTheme.urgencySoon),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: FreshCycleTheme.urgencySoon,
+                      ),
                     ),
                   ),
                 ],
@@ -875,7 +1180,12 @@ class _PantryScreenState extends State<PantryScreen> {
         if (allRest.isNotEmpty) ...[
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(16, expiring.isEmpty && expired.isEmpty ? 16 : 8, 16, 6),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                expiring.isEmpty && expired.isEmpty ? 16 : 8,
+                16,
+                6,
+              ),
               child: const Text(
                 'All Items',
                 style: TextStyle(
@@ -902,12 +1212,19 @@ class _PantryScreenState extends State<PantryScreen> {
                     child: GestureDetector(
                       onTap: () => setState(() => _selectedCategory = cat),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 7,
+                        ),
                         decoration: BoxDecoration(
-                          color: isSelected ? FreshCycleTheme.primary : Colors.white,
+                          color: isSelected
+                              ? FreshCycleTheme.primary
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: isSelected ? FreshCycleTheme.primary : FreshCycleTheme.borderColor,
+                            color: isSelected
+                                ? FreshCycleTheme.primary
+                                : FreshCycleTheme.borderColor,
                             width: 0.5,
                           ),
                         ),
@@ -916,7 +1233,9 @@ class _PantryScreenState extends State<PantryScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            color: isSelected ? Colors.white : FreshCycleTheme.textSecondary,
+                            color: isSelected
+                                ? Colors.white
+                                : FreshCycleTheme.textSecondary,
                           ),
                         ),
                       ),
@@ -932,7 +1251,8 @@ class _PantryScreenState extends State<PantryScreen> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (context, i) => _buildItemCard(rest[i], myPantry.indexOf(rest[i])),
+                  (context, i) =>
+                      _buildItemCard(rest[i], myPantry.indexOf(rest[i])),
                   childCount: rest.length,
                 ),
               ),
@@ -943,7 +1263,10 @@ class _PantryScreenState extends State<PantryScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
                 child: Text(
                   'No items in "$_selectedCategory"',
-                  style: const TextStyle(color: FreshCycleTheme.textHint, fontSize: 13),
+                  style: const TextStyle(
+                    color: FreshCycleTheme.textHint,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ),
@@ -975,18 +1298,28 @@ class _PantryScreenState extends State<PantryScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.kitchen_outlined, size: 64, color: FreshCycleTheme.textHint),
+                  const Icon(
+                    Icons.kitchen_outlined,
+                    size: 64,
+                    color: FreshCycleTheme.textHint,
+                  ),
                   const SizedBox(height: 16),
                   const Text(
                     "Your pantry is empty.",
-                    style: TextStyle(fontSize: 16, color: FreshCycleTheme.textSecondary),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: FreshCycleTheme.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   TextButton.icon(
                     onPressed: () => _showAddItemSheet(),
                     icon: const Icon(Icons.add, color: FreshCycleTheme.primary),
-                    label: const Text("Add your first item", style: TextStyle(color: FreshCycleTheme.primary)),
-                  )
+                    label: const Text(
+                      "Add your first item",
+                      style: TextStyle(color: FreshCycleTheme.primary),
+                    ),
+                  ),
                 ],
               ),
             )
@@ -1004,4 +1337,18 @@ class _PantryScreenState extends State<PantryScreen> {
       ),
     );
   }
+}
+
+Widget _buildCategoryIcon(
+  dynamic icon, {
+  required double size,
+  required Color color,
+}) {
+  if (icon is IconData) {
+    return Icon(icon, size: size, color: color);
+  }
+  if (icon is List<List<dynamic>>) {
+    return HugeIcon(icon: icon, size: size, color: color);
+  }
+  return Icon(Icons.inventory_2_outlined, size: size, color: color);
 }
