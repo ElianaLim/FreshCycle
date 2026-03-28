@@ -5,6 +5,7 @@ import 'theme/app_theme.dart';
 import 'screens/marketplace_screen.dart';
 import 'screens/profile_screen.dart';
 import 'providers/auth_provider.dart';
+import 'screens/pantry_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,7 +50,7 @@ class _MainShellState extends State<MainShell> {
     final authProvider = context.watch<AuthProvider>();
     
     final List<Widget> _screens = [
-      const _PlaceholderScreen(label: 'Pantry', icon: Icons.kitchen_outlined),
+      const PantryScreen(),
       const _PlaceholderScreen(label: 'Recipes', icon: Icons.restaurant_menu_outlined),
       const MarketplaceScreen(),
       const _PlaceholderScreen(label: 'Impact', icon: Icons.eco_outlined),
