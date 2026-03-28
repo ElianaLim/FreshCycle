@@ -52,18 +52,12 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    
     final List<Widget> _screens = [
       const PantryScreen(),
       const _PlaceholderScreen(label: 'Recipes', icon: Icons.restaurant_menu_outlined),
       const MarketplaceScreen(),
       const _PlaceholderScreen(label: 'Notifications', icon: Icons.notifications_none_rounded),
-      ProfileScreen(
-        currentUser: authProvider.user,
-        onLogin: () => authProvider.login(),
-        onLogout: () => authProvider.logout(),
-      ),
+      const ProfileScreen(),
     ];
 
     return Scaffold(
