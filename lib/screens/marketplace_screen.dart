@@ -42,17 +42,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
 
   final List<double> _proximityOptions = [1.0, 2.0, 5.0, 10.0, 20.0, 50.0];
 
-  final List<String> _sellingCategories = [
-    'All',
-    'Produce',
-    'Dairy',
-    'Bakery',
-    'Meat & fish',
-    'Meals & leftovers',
-    'Snacks',
-    'Beverages',
-    'Other',
-  ];
+  List<String> get _sellingCategories => FreshCycleTheme.foodCategories;
 
   final List<String> _requestCategories = [
     'All',

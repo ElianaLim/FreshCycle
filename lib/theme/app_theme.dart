@@ -29,6 +29,19 @@ class FreshCycleTheme {
   static const Color textSecondary = Color(0xFF6B6966);
   static const Color textHint = Color(0xFFADAB9A);
 
+  // Shared food categories
+  static const List<String> foodCategories = [
+    'All',
+    'Produce',
+    'Dairy',
+    'Bakery',
+    'Meat & fish',
+    'Meals & leftovers',
+    'Snacks',
+    'Beverages',
+    'Other',
+  ];
+
   // Avatar palette
   static const List<Color> avatarBgs = [
     Color(0xFFE1F5EE),
