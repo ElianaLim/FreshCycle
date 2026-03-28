@@ -278,44 +278,46 @@ class ListingDetailScreen extends StatelessWidget {
       ),
 
       // Sticky Bottom Bar for messaging
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 16,
-          bottom: MediaQuery.of(context).padding.bottom + 16,
-        ),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(color: FreshCycleTheme.borderColor, width: 0.5),
+      bottomNavigationBar: listing.seller.id != 'user_001'
+        ? Container(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 16,
+            bottom: MediaQuery.of(context).padding.bottom + 16,
           ),
-        ),
-        child: FilledButton.icon(
-          onPressed: () {
-            if (onMessage != null) {
-              Navigator.pop(context); // Close details
-              onMessage!(); // Open bottom sheet
-            }
-          },
-          icon: const Icon(
-            Icons.chat_bubble_outline_rounded,
-            size: 20,
+          decoration: const BoxDecoration(
             color: Colors.white,
-          ),
-          label: const Text(
-            'Message Seller',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-          style: FilledButton.styleFrom(
-            backgroundColor: FreshCycleTheme.primary,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+            border: Border(
+              top: BorderSide(color: FreshCycleTheme.borderColor, width: 0.5),
             ),
           ),
-        ),
-      ),
+          child: FilledButton.icon(
+            onPressed: () {
+              if (onMessage != null) {
+                Navigator.pop(context); // Close details
+                onMessage!(); // Open bottom sheet
+              }
+            },
+            icon: const Icon(
+              Icons.chat_bubble_outline_rounded,
+              size: 20,
+              color: Colors.white,
+            ),
+            label: const Text(
+              'Message Seller',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: FreshCycleTheme.primary,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        )
+        : null,
     );
   }
 
