@@ -6,6 +6,7 @@ import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/listing_provider.dart';
 import '../theme/app_theme.dart';
+import '../data/db.dart';
 
 class PostRequestScreen extends StatefulWidget {
   const PostRequestScreen({super.key});
@@ -36,20 +37,38 @@ class _PostRequestScreenState extends State<PostRequestScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  void _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     final authUser = context.read<AuthProvider>().user;
     final budget = double.tryParse(_budgetController.text.trim());
+    final sellerId = authUser?.id ?? 'demo-user';
+
+    // Save to database
+    final dbRequest = await DB.createListing(
+      sellerId: sellerId,
+      type: 'requesting',
+      title: _titleController.text.trim(),
+      description: _descriptionController.text.trim(),
+      category: _selectedCategory,
+      price: budget,
+      urgency: 'safe',
+      note: _noteController.text.trim().isEmpty
+          ? null
+          : _noteController.text.trim(),
+      tags: [_selectedCategory.toLowerCase(), 'request'],
+    );
+
+    // Also add to local provider for immediate display
     final newRequest = Listing(
-      id: 'r_${DateTime.now().millisecondsSinceEpoch}',
+      id: dbRequest?['id'] ?? 'r_${DateTime.now().millisecondsSinceEpoch}',
+      sellerId: sellerId,
       type: ListingType.requesting,
       title: _titleController.text.trim(),
       description: _descriptionController.text.trim(),
       category: _selectedCategory,
       price: budget,
       postedAt: DateTime.now(),
-      distanceKm: 0.2,
       urgency: UrgencyLevel.safe,
       offerCount: 0,
       note: _noteController.text.trim().isEmpty
@@ -63,8 +82,10 @@ class _PostRequestScreenState extends State<PostRequestScreen> {
           _fulfillmentPreference == 'Either',
     );
 
-    context.read<ListingProvider>().addRequest(newRequest);
-    Navigator.pop(context);
+    if (mounted) {
+      context.read<ListingProvider>().addRequest(newRequest);
+      Navigator.pop(context);
+    }
   }
 
   @override

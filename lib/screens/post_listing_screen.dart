@@ -8,6 +8,7 @@ import '../providers/auth_provider.dart';
 import '../models/user.dart';
 import '../models/listing.dart';
 import '../data/db.dart';
+import 'profile_screen.dart';
 
 
 class PostListingScreen extends StatefulWidget {
@@ -74,9 +75,27 @@ class _PostListingScreenState extends State<PostListingScreen> {
           TextButton(
             onPressed: () async {
               final authUser = context.read<AuthProvider>().user;
-              final sellerId = isEditing
-                  ? widget.existingListing!.sellerId ?? widget.existingListing!.seller.id
-                  : authUser?.id ?? 'demo-user';
+              
+              // Use existing sellerId if available, otherwise use current user's ID
+              String sellerId;
+              if (isEditing && widget.existingListing!.sellerId != null && widget.existingListing!.sellerId!.isNotEmpty) {
+                sellerId = widget.existingListing!.sellerId!;
+              } else if (isEditing && widget.existingListing!.seller.id.isNotEmpty) {
+                sellerId = widget.existingListing!.seller.id;
+              } else {
+                sellerId = authUser?.id ?? '';
+              }
+              
+              // Validate sellerId is a valid UUID - if not, redirect to login
+              final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', caseSensitive: false);
+              if (sellerId.isEmpty || !uuidRegex.hasMatch(sellerId)) {
+                // Redirect to profile screen for login
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                );
+                return;
+              }
 
               // Save to database
               final dbListing = await DB.createListing(
