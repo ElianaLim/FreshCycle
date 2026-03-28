@@ -7,6 +7,7 @@ class User {
   final String initials;
   final String? profilePictureUrl;
   final String number;
+  final int points;
 
   const User({
     required this.id,
@@ -15,6 +16,7 @@ class User {
     required this.initials,
     this.profilePictureUrl,
     required this.number,
+    this.points = 0,
   });
   
   SellerProfile toSellerProfile() {
@@ -37,6 +39,7 @@ class User {
       initials: map['initials'] as String? ?? 'U',
       profilePictureUrl: map['profile_picture_url'] as String?,
       number: map['phone_number'] as String,
+      points: map['points'] as int? ?? 0,
     );
   }
 
@@ -48,5 +51,6 @@ class User {
     initials: 'MC',
     profilePictureUrl: null,
     number: '09123456789',
+    points: 150,
   );
 }
