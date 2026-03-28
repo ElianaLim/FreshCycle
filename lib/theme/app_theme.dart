@@ -35,7 +35,7 @@ class FreshCycleTheme {
     'Produce',
     'Dairy',
     'Bakery',
-    'Meat & fish',
+    'Meat & Fish',
     'Meals & leftovers',
     'Snacks',
     'Beverages',

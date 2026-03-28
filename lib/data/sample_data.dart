@@ -79,7 +79,7 @@ final List<Listing> sampleListings = [
     type: ListingType.selling,
     title: 'Bangus fillets (frozen)',
     description: '4 pieces, individually vacuum-sealed. From Dagupan. Best before next week.',
-    category: 'Meat & fish',
+    category: 'Meat & Fish',
     price: 120,
     originalPrice: 220,
     images: [], 
