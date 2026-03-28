@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../theme/app_theme.dart';
 import '../models/listing.dart';
 
@@ -126,6 +127,12 @@ class _PantryScreenState extends State<PantryScreen> {
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.barcode_reader, color: FreshCycleTheme.primary),
                       onPressed: () async {
+                        final status = await Permission.camera.request();
+                        if (status.isPermanentlyDenied) {
+                          openAppSettings();
+                          return;
+                        }
+                        if (!status.isGranted) return;
                         try {
                           var result = await BarcodeScanner.scan();
                           if (result.type == ResultType.Barcode) {
