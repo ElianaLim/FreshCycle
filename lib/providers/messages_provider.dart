@@ -13,16 +13,46 @@ class MessagesProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  List<Conversation> get listingConversations =>
-      _conversations.where((c) => c.context == ConversationContext.listing).toList();
+  List<Conversation> get listingConversations => _conversations
+      .where((c) => c.context == ConversationContext.listing)
+      .toList();
 
-  List<Conversation> get requestConversations =>
-      _conversations.where((c) => c.context == ConversationContext.request).toList();
+  List<Conversation> get requestConversations => _conversations
+      .where((c) => c.context == ConversationContext.request)
+      .toList();
 
   /// Initialize the provider with a user ID and load conversations
   Future<void> initialize(String userId) async {
     _currentUserId = userId;
     await loadConversations();
+  }
+
+  void _sortConversations() {
+    _conversations.sort((a, b) {
+      final aTime = a.lastMessage?.sentAt ?? DateTime(1970);
+      final bTime = b.lastMessage?.sentAt ?? DateTime(1970);
+      return bTime.compareTo(aTime);
+    });
+  }
+
+  Conversation _copyConversationWithMessages(
+    Conversation conversation,
+    List<ChatMessage> messages,
+  ) {
+    return Conversation(
+      id: conversation.id,
+      participantId: conversation.participantId,
+      participantName: conversation.participantName,
+      participantInitials: conversation.participantInitials,
+      participantIsVerified: conversation.participantIsVerified,
+      participantPhone: conversation.participantPhone,
+      participantBarangay: conversation.participantBarangay,
+      context: conversation.context,
+      relatedListingId: conversation.relatedListingId,
+      relatedListingTitle: conversation.relatedListingTitle,
+      messages: messages,
+      isMuted: conversation.isMuted,
+    );
   }
 
   /// Load all conversations for the current user
@@ -43,20 +73,45 @@ class MessagesProvider extends ChangeNotifier {
         conversations.add(Conversation.fromMap(convMap, messages));
       }
 
-      // Sort by last message time
-      conversations.sort((a, b) {
-        final aTime = a.lastMessage?.sentAt ?? DateTime(1970);
-        final bTime = b.lastMessage?.sentAt ?? DateTime(1970);
-        return bTime.compareTo(aTime);
-      });
-
       _conversations = conversations;
+      _sortConversations();
     } catch (e) {
       _errorMessage = 'Failed to load conversations: ${e.toString()}';
     }
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  /// Refresh only one conversation's messages (faster than loading all chats)
+  Future<void> refreshConversation(String conversationId) async {
+    final index = _conversations.indexWhere((c) => c.id == conversationId);
+    if (index == -1) return;
+
+    try {
+      final msgMaps = await DB.getMessages(conversationId);
+      final refreshedMessages =
+          msgMaps.map((m) => ChatMessage.fromMap(m)).toList();
+      final current = _conversations[index];
+      final currentLast = current.lastMessage?.id;
+      final refreshedLast =
+          refreshedMessages.isNotEmpty ? refreshedMessages.last.id : null;
+
+      if (current.messages.length == refreshedMessages.length &&
+          currentLast == refreshedLast) {
+        return;
+      }
+
+      _conversations[index] = _copyConversationWithMessages(
+        current,
+        refreshedMessages,
+      );
+      _sortConversations();
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = 'Failed to refresh conversation: ${e.toString()}';
+      notifyListeners();
+    }
   }
 
   /// Get a specific conversation by ID
@@ -82,12 +137,25 @@ class MessagesProvider extends ChangeNotifier {
         text: text,
       );
 
-      if (result != null) {
-        // Reload conversations to get updated data
+      if (result == null) return false;
+
+      final index = _conversations.indexWhere((c) => c.id == conversationId);
+      if (index != -1) {
+        final updatedMessages =
+            List<ChatMessage>.from(_conversations[index].messages)
+              ..add(ChatMessage.fromMap(result));
+
+        _conversations[index] = _copyConversationWithMessages(
+          _conversations[index],
+          updatedMessages,
+        );
+        _sortConversations();
+        notifyListeners();
+      } else {
         await loadConversations();
-        return true;
       }
-      return false;
+
+      return true;
     } catch (e) {
       _errorMessage = 'Failed to send message: ${e.toString()}';
       notifyListeners();
@@ -119,10 +187,30 @@ class MessagesProvider extends ChangeNotifier {
       );
 
       if (existing != null) {
+        // If an initial message was passed on an existing chat, send it immediately
+        if (initialMessage != null && initialMessage.isNotEmpty) {
+          await sendMessage(
+            conversationId: existing['id'] as String,
+            text: initialMessage,
+          );
+          return getConversation(existing['id'] as String);
+        }
+
         // Return the existing conversation
         final msgMaps = await DB.getMessages(existing['id'] as String);
         final messages = msgMaps.map((m) => ChatMessage.fromMap(m)).toList();
-        return Conversation.fromMap(existing, messages);
+        final conversation = Conversation.fromMap(existing, messages);
+
+        final index = _conversations.indexWhere((c) => c.id == conversation.id);
+        if (index != -1) {
+          _conversations[index] = conversation;
+        } else {
+          _conversations.add(conversation);
+        }
+        _sortConversations();
+        notifyListeners();
+
+        return conversation;
       }
 
       // Create new conversation
@@ -141,7 +229,6 @@ class MessagesProvider extends ChangeNotifier {
       );
 
       if (result != null) {
-        // Reload conversations to get the new one
         await loadConversations();
         return _conversations.firstWhere(
           (c) => c.id == result['id'],
@@ -162,7 +249,28 @@ class MessagesProvider extends ChangeNotifier {
 
     try {
       await DB.markMessagesAsRead(conversationId, _currentUserId!);
-      await loadConversations();
+
+      final index = _conversations.indexWhere((c) => c.id == conversationId);
+      if (index != -1) {
+        final updatedMessages = _conversations[index].messages.map((m) {
+          if (m.senderId != _currentUserId && m.status != MessageStatus.read) {
+            return ChatMessage(
+              id: m.id,
+              senderId: m.senderId,
+              text: m.text,
+              sentAt: m.sentAt,
+              status: MessageStatus.read,
+            );
+          }
+          return m;
+        }).toList();
+
+        _conversations[index] = _copyConversationWithMessages(
+          _conversations[index],
+          updatedMessages,
+        );
+        notifyListeners();
+      }
     } catch (e) {
       print('Failed to mark as read: $e');
     }

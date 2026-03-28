@@ -9,9 +9,15 @@ import 'post_listing_screen.dart';
 
 class ListingDetailScreen extends StatelessWidget {
   final Listing listing;
+  final VoidCallback? onBuy;
   final VoidCallback? onMessage;
 
-  const ListingDetailScreen({super.key, required this.listing, this.onMessage});
+  const ListingDetailScreen({
+    super.key,
+    required this.listing,
+    this.onBuy,
+    this.onMessage,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +27,8 @@ class ListingDetailScreen extends StatelessWidget {
       orElse: () => listing,
     );
     final currentUserId = context.watch<AuthProvider>().user?.id;
-    final isOwnListing = currentUserId != null && currentListing.seller.id == currentUserId;
+    final isOwnListing =
+        currentUserId != null && currentListing.seller.id == currentUserId;
 
     final discountPct = currentListing.discountPercent.round();
 
@@ -61,26 +68,27 @@ class ListingDetailScreen extends StatelessWidget {
                       isOwnListing
                           ? Icons.edit_rounded
                           : currentListing.isSaved
-                            ? Icons.bookmark_rounded
-                            : Icons.bookmark_border_rounded,
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_border_rounded,
                       size: 20,
                     ),
                     color: isOwnListing
                         ? FreshCycleTheme.primary
                         : currentListing.isSaved
-                            ? FreshCycleTheme.primary
-                            : FreshCycleTheme.textPrimary,
+                        ? FreshCycleTheme.primary
+                        : FreshCycleTheme.textPrimary,
                     onPressed: () {
                       if (isOwnListing) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => PostListingScreen(existingListing: listing),
-                            ),
-                          );
-                        } else {
-                          context.read<ListingProvider>().toggleSave(listing.id);
-                        }
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                PostListingScreen(existingListing: listing),
+                          ),
+                        );
+                      } else {
+                        context.read<ListingProvider>().toggleSave(listing.id);
+                      }
                     },
                   ),
                 ),
@@ -280,47 +288,82 @@ class ListingDetailScreen extends StatelessWidget {
         ],
       ),
 
-      // Sticky Bottom Bar for messaging
+      // Sticky Bottom Bar for actions
       bottomNavigationBar: !isOwnListing
-        ? Container(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 16,
-            bottom: MediaQuery.of(context).padding.bottom + 16,
-          ),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(
-              top: BorderSide(color: FreshCycleTheme.borderColor, width: 0.5),
-            ),
-          ),
-          child: FilledButton.icon(
-            onPressed: () {
-              if (onMessage != null) {
-                Navigator.pop(context); // Close details
-                onMessage!(); // Open bottom sheet
-              }
-            },
-            icon: const Icon(
-              Icons.chat_bubble_outline_rounded,
-              size: 20,
-              color: Colors.white,
-            ),
-            label: const Text(
-              'Message Seller',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            style: FilledButton.styleFrom(
-              backgroundColor: FreshCycleTheme.primary,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          ? Container(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 16,
+                bottom: MediaQuery.of(context).padding.bottom + 16,
               ),
-            ),
-          ),
-        )
-        : null,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  top: BorderSide(
+                    color: FreshCycleTheme.borderColor,
+                    width: 0.5,
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: onBuy,
+                      icon: const Icon(
+                        Icons.shopping_bag_outlined,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Buy',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: FreshCycleTheme.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: onMessage,
+                      icon: const Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Message',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: FreshCycleTheme.primary,
+                        side: const BorderSide(
+                          color: FreshCycleTheme.primary,
+                          width: 0.8,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : null,
     );
   }
 

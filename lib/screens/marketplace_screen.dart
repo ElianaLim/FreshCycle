@@ -31,11 +31,11 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
   String _selectedCategory = 'All';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
-  
+
   // Location and proximity settings
   String _currentLocation = 'Diliman, Quezon City';
   double _proximityRadius = 5.0;
-  
+
   final List<String> _availableLocations = [
     'Diliman, Quezon City',
     'Makati City',
@@ -91,21 +91,23 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
   List<Listing> _getFilteredListings(BuildContext context) {
     // Read from the provider instead of sampleListings directly
     List<Listing> listings = context.watch<ListingProvider>().listings;
-    
+
     if (_selectedCategory != 'All') {
       listings = listings
-          .where((l) =>
-              l.category.toLowerCase() ==
-              _selectedCategory.toLowerCase())
+          .where(
+            (l) => l.category.toLowerCase() == _selectedCategory.toLowerCase(),
+          )
           .toList();
     }
     if (_searchQuery.isNotEmpty) {
       listings = listings
-          .where((l) =>
-              l.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              l.description
-                  .toLowerCase()
-                  .contains(_searchQuery.toLowerCase()))
+          .where(
+            (l) =>
+                l.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+                l.description.toLowerCase().contains(
+                  _searchQuery.toLowerCase(),
+                ),
+          )
           .toList();
     }
     return listings;
@@ -123,28 +125,65 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
         requests = requests.where((r) => r.distanceKm < 1.0).toList();
         break;
       case 'No offers':
-        requests =
-            requests.where((r) => (r.offerCount ?? 0) == 0).toList();
+        requests = requests.where((r) => (r.offerCount ?? 0) == 0).toList();
         break;
     }
     if (_searchQuery.isNotEmpty) {
       requests = requests
-          .where((r) =>
-              r.title.toLowerCase().contains(_searchQuery.toLowerCase()))
+          .where(
+            (r) => r.title.toLowerCase().contains(_searchQuery.toLowerCase()),
+          )
           .toList();
     }
     return requests;
   }
 
-  void _showMessageSheet(BuildContext context, Listing listing) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+  Future<void> _openListingConversation(
+    BuildContext context,
+    Listing listing, {
+    bool fromListingDetail = false,
+  }) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to send messages.')),
+      );
+      return;
+    }
+
+    final messagesProvider = context.read<MessagesProvider>();
+    await messagesProvider.initialize(auth.user!.id);
+
+    final conversation = await messagesProvider.startConversation(
+      participantId: listing.seller.id,
+      participantName: listing.seller.name,
+      participantInitials: listing.seller.initials,
+      participantIsVerified: listing.seller.isVerified,
+      participantBarangay: listing.seller.barangay,
+      context: ConversationContext.listing,
+      relatedListingId: listing.id,
+      relatedListingTitle: listing.title,
+      initialMessage: null,
+    );
+
+    if (!context.mounted || conversation == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          conversation: conversation,
+          currentUserId: auth.user!.id,
+          showListingPreview: fromListingDetail,
+          quickQuestions: fromListingDetail
+              ? const [
+                  'Is this still available?',
+                  'Can I pick up today?',
+                  'What time works for pickup?',
+                ]
+              : const [],
+        ),
       ),
-      builder: (ctx) => _MessageSheet(listing: listing),
     );
   }
 
@@ -157,6 +196,106 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => _OfferSheet(listing: listing),
+    );
+  }
+
+  void _showBuyDialog(
+    BuildContext context,
+    Listing listing, {
+    bool fromListingDetail = false,
+  }) {
+    final auth = context.read<AuthProvider>();
+    if (auth.user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to buy items.')),
+      );
+      return;
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm purchase'),
+        content: Text(
+          'Buy "${listing.title}" for ₱${(listing.price ?? 0).toStringAsFixed(0)}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+
+              final messagesProvider = context.read<MessagesProvider>();
+              await messagesProvider.initialize(auth.user!.id);
+
+              final conversation = await messagesProvider.startConversation(
+                participantId: listing.seller.id,
+                participantName: listing.seller.name,
+                participantInitials: listing.seller.initials,
+                participantIsVerified: listing.seller.isVerified,
+                participantBarangay: listing.seller.barangay,
+                context: ConversationContext.listing,
+                relatedListingId: listing.id,
+                relatedListingTitle: listing.title,
+                initialMessage: null,
+              );
+
+              if (conversation != null) {
+                final alreadyRequested = conversation.messages.any(
+                  (m) => m.text.startsWith('[BUY_REQUEST]'),
+                );
+                if (!alreadyRequested) {
+                  final priceLabel = (listing.price ?? 0).toStringAsFixed(0);
+                  await messagesProvider.sendMessage(
+                    conversationId: conversation.id,
+                    text:
+                        '[BUY_REQUEST] Hi! I would like to buy "${listing.title}" for ₱$priceLabel. Is this still available?',
+                  );
+
+                  // Refresh to avoid duplicate buy request sends on the next open.
+                  await messagesProvider.loadConversations();
+                }
+              }
+
+              if (!context.mounted) return;
+
+              if (conversation == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Unable to open chat right now.'),
+                  ),
+                );
+                return;
+              }
+
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ChatScreen(
+                    conversation: conversation,
+                    currentUserId: auth.user!.id,
+                    showListingPreview: fromListingDetail,
+                    quickQuestions: fromListingDetail
+                        ? const [
+                            'Is this still available?',
+                            'Can I pick up today?',
+                            'What time works for pickup?',
+                          ]
+                        : const [],
+                  ),
+                ),
+              );
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: FreshCycleTheme.primary,
+            ),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -243,15 +382,13 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
             actions: [
               IconButton(
                 icon: const Icon(
-                  Icons.bookmark_border_rounded, 
+                  Icons.bookmark_border_rounded,
                   color: FreshCycleTheme.textPrimary,
                 ),
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => const SavedItemsScreen(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const SavedItemsScreen()),
                   );
                 },
               ),
@@ -262,9 +399,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
                 ),
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => const MessagesScreen(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const MessagesScreen()),
                 ),
               ),
             ],
@@ -287,8 +422,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
                         ),
                         suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.close_rounded,
-                                    size: 18),
+                                icon: const Icon(Icons.close_rounded, size: 18),
                                 onPressed: () {
                                   _searchController.clear();
                                   setState(() => _searchQuery = '');
@@ -296,26 +430,36 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
                               )
                             : null,
                         contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(
-                              color: FreshCycleTheme.borderColor, width: 0.5),
+                            color: FreshCycleTheme.borderColor,
+                            width: 0.5,
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(
-                              color: FreshCycleTheme.borderColor, width: 0.5),
+                            color: FreshCycleTheme.borderColor,
+                            width: 0.5,
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(
-                              color: FreshCycleTheme.primary, width: 1),
+                            color: FreshCycleTheme.primary,
+                            width: 1,
+                          ),
                         ),
                         filled: true,
                         fillColor: Colors.white,
                         hintStyle: const TextStyle(
-                            color: FreshCycleTheme.textHint, fontSize: 14),
+                          color: FreshCycleTheme.textHint,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ),
@@ -331,9 +475,13 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
                     indicatorColor: FreshCycleTheme.primary,
                     indicatorSize: TabBarIndicatorSize.tab,
                     labelStyle: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 13),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                     unselectedLabelStyle: const TextStyle(
-                        fontWeight: FontWeight.w400, fontSize: 13),
+                      fontWeight: FontWeight.w400,
+                      fontSize: 13,
+                    ),
                     dividerColor: FreshCycleTheme.borderColor,
                   ),
                 ],
@@ -348,16 +496,19 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
               listings: _getFilteredListings(context),
               categories: _sellingCategories,
               selectedCategory: _selectedCategory,
-              onCategorySelected: (c) =>
-                  setState(() => _selectedCategory = c),
-              onMessage: (l) => _showMessageSheet(context, l),
+              onCategorySelected: (c) => setState(() => _selectedCategory = c),
+              onBuy: (l) => _showBuyDialog(context, l),
+              onMessage: (l) => _openListingConversation(context, l),
+              onBuyFromDetail: (l) =>
+                  _showBuyDialog(context, l, fromListingDetail: true),
+              onMessageFromDetail: (l) =>
+                  _openListingConversation(context, l, fromListingDetail: true),
             ),
             _RequestsTab(
               requests: _filteredRequests,
               categories: _requestCategories,
               selectedCategory: _selectedCategory,
-              onCategorySelected: (c) =>
-                  setState(() => _selectedCategory = c),
+              onCategorySelected: (c) => setState(() => _selectedCategory = c),
               onOffer: (l) => _showOfferSheet(context, l),
             ),
           ],
@@ -367,9 +518,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const PostListingScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const PostListingScreen()),
           );
         },
         backgroundColor: FreshCycleTheme.primary,
@@ -405,11 +554,11 @@ class _StatsBar extends StatelessWidget {
   }
 
   Widget _divider() => Container(
-        width: 0.5,
-        height: 30,
-        color: FreshCycleTheme.borderColor,
-        margin: const EdgeInsets.symmetric(horizontal: 12),
-      );
+    width: 0.5,
+    height: 30,
+    color: FreshCycleTheme.borderColor,
+    margin: const EdgeInsets.symmetric(horizontal: 12),
+  );
 }
 
 class _StatItem extends StatelessWidget {
@@ -474,12 +623,9 @@ class _CategoryFilter extends StatelessWidget {
             onTap: () => onSelected(cat),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
-                color: isSelected
-                    ? FreshCycleTheme.primary
-                    : Colors.white,
+                color: isSelected ? FreshCycleTheme.primary : Colors.white,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: isSelected
@@ -511,14 +657,20 @@ class _ListingsTab extends StatelessWidget {
   final List<String> categories;
   final String selectedCategory;
   final ValueChanged<String> onCategorySelected;
+  final void Function(Listing) onBuy;
   final void Function(Listing) onMessage;
+  final void Function(Listing) onBuyFromDetail;
+  final void Function(Listing) onMessageFromDetail;
 
   const _ListingsTab({
     required this.listings,
     required this.categories,
     required this.selectedCategory,
     required this.onCategorySelected,
+    required this.onBuy,
     required this.onMessage,
+    required this.onBuyFromDetail,
+    required this.onMessageFromDetail,
   });
 
   @override
@@ -552,12 +704,11 @@ class _ListingsTab extends StatelessWidget {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
             sliver: SliverGrid(
-              gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
-                mainAxisExtent: 380,
+                mainAxisExtent: 260,
               ),
               delegate: SliverChildBuilderDelegate(
                 (context, i) => SellingCard(
@@ -569,11 +720,13 @@ class _ListingsTab extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (_) => ListingDetailScreen(
                           listing: listings[i],
-                          onMessage: () => onMessage(listings[i]), 
+                          onBuy: () => onBuyFromDetail(listings[i]),
+                          onMessage: () => onMessageFromDetail(listings[i]),
                         ),
                       ),
                     );
                   },
+                  onBuy: () => onBuy(listings[i]),
                   onMessage: () => onMessage(listings[i]),
                 ),
                 childCount: listings.length,
@@ -664,13 +817,13 @@ class _MessageSheetState extends State<_MessageSheet> {
 
   Future<void> _sendMessage(String text) async {
     if (text.trim().isEmpty) return;
-    
+
     setState(() => _isSending = true);
-    
+
     try {
       final authProvider = context.read<AuthProvider>();
       final messagesProvider = context.read<MessagesProvider>();
-      
+
       if (authProvider.user == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -694,22 +847,20 @@ class _MessageSheetState extends State<_MessageSheet> {
 
       if (mounted) {
         Navigator.pop(context);
-        
+
         // Navigate to messages screen
         if (conversation != null) {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const MessagesScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const MessagesScreen()),
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send message: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to send message: $e')));
       }
     } finally {
       if (mounted) {
@@ -728,7 +879,8 @@ class _MessageSheetState extends State<_MessageSheet> {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom),
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -768,34 +920,39 @@ class _MessageSheetState extends State<_MessageSheet> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: [
-                'Is this still available?',
-                'Can I pick up today?',
-                'What time works for pickup?',
-              ]
-                  .map(
-                    (msg) => GestureDetector(
-                      onTap: () => _sendMessage(msg),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: FreshCycleTheme.primaryLight,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: FreshCycleTheme.primary, width: 0.5),
-                        ),
-                        child: Text(
-                          msg,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: FreshCycleTheme.primaryDark,
+              children:
+                  [
+                        'Is this still available?',
+                        'Can I pick up today?',
+                        'What time works for pickup?',
+                      ]
+                      .map(
+                        (msg) => GestureDetector(
+                          onTap: () => _sendMessage(msg),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: FreshCycleTheme.primaryLight,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: FreshCycleTheme.primary,
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              msg,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: FreshCycleTheme.primaryDark,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  )
-                  .toList(),
+                      )
+                      .toList(),
             ),
             const SizedBox(height: 16),
             Row(
@@ -809,28 +966,38 @@ class _MessageSheetState extends State<_MessageSheet> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(
-                            color: FreshCycleTheme.borderColor, width: 0.5),
+                          color: FreshCycleTheme.borderColor,
+                          width: 0.5,
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(
-                            color: FreshCycleTheme.borderColor, width: 0.5),
+                          color: FreshCycleTheme.borderColor,
+                          width: 0.5,
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(
-                            color: FreshCycleTheme.primary, width: 1),
+                          color: FreshCycleTheme.primary,
+                          width: 1,
+                        ),
                       ),
                       filled: true,
                       fillColor: Colors.white,
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 FilledButton(
-                  onPressed: _isSending ? null : () => _sendMessage(_messageController.text),
+                  onPressed: _isSending
+                      ? null
+                      : () => _sendMessage(_messageController.text),
                   style: FilledButton.styleFrom(
                     backgroundColor: FreshCycleTheme.primary,
                     shape: RoundedRectangleBorder(
@@ -847,8 +1014,11 @@ class _MessageSheetState extends State<_MessageSheet> {
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(Icons.send_rounded,
-                          size: 18, color: Colors.white),
+                      : const Icon(
+                          Icons.send_rounded,
+                          size: 18,
+                          color: Colors.white,
+                        ),
                 ),
               ],
             ),
@@ -869,7 +1039,8 @@ class _OfferSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom),
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -909,17 +1080,23 @@ class _OfferSheet extends StatelessWidget {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(
-                      color: FreshCycleTheme.borderColor, width: 0.5),
+                    color: FreshCycleTheme.borderColor,
+                    width: 0.5,
+                  ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(
-                      color: FreshCycleTheme.borderColor, width: 0.5),
+                    color: FreshCycleTheme.borderColor,
+                    width: 0.5,
+                  ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(
-                      color: FreshCycleTheme.primary, width: 1),
+                    color: FreshCycleTheme.primary,
+                    width: 1,
+                  ),
                 ),
                 filled: true,
                 fillColor: Colors.white,
@@ -995,7 +1172,9 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
     super.initState();
     _selectedLocation = widget.currentLocation;
     _selectedProximity = widget.proximityRadius;
-    _currentLatLng = widget.locationCoordinates[_selectedLocation] ?? LatLng(14.6534, 121.0681);
+    _currentLatLng =
+        widget.locationCoordinates[_selectedLocation] ??
+        LatLng(14.6534, 121.0681);
     _locationController.text = _selectedLocation;
     _reverseGeocode(_currentLatLng);
   }
@@ -1017,24 +1196,31 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
         location.latitude,
         location.longitude,
       );
-      
+
       if (placemarks.isNotEmpty) {
         final place = placemarks.first;
         String address = '';
-        
+
         if (place.street != null && place.street!.isNotEmpty) {
           address = place.street!;
         }
         if (place.subLocality != null && place.subLocality!.isNotEmpty) {
-          address = address.isEmpty ? place.subLocality! : '$address, ${place.subLocality}';
+          address = address.isEmpty
+              ? place.subLocality!
+              : '$address, ${place.subLocality}';
         }
         if (place.locality != null && place.locality!.isNotEmpty) {
-          address = address.isEmpty ? place.locality! : '$address, ${place.locality}';
+          address = address.isEmpty
+              ? place.locality!
+              : '$address, ${place.locality}';
         }
-        if (place.administrativeArea != null && place.administrativeArea!.isNotEmpty) {
-          address = address.isEmpty ? place.administrativeArea! : '$address, ${place.administrativeArea}';
+        if (place.administrativeArea != null &&
+            place.administrativeArea!.isNotEmpty) {
+          address = address.isEmpty
+              ? place.administrativeArea!
+              : '$address, ${place.administrativeArea}';
         }
-        
+
         setState(() {
           _currentAddress = address.isNotEmpty ? address : 'Selected Location';
         });
@@ -1049,12 +1235,12 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
   // Forward geocode address to coordinates
   Future<void> _geocodeAddress(String address) async {
     if (address.trim().isEmpty) return;
-    
+
     setState(() => _isSearching = true);
-    
+
     try {
       List<Location> locations = await locationFromAddress(address);
-      
+
       if (locations.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1066,9 +1252,12 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
         }
         return;
       }
-      
-      final newLocation = LatLng(locations.first.latitude, locations.first.longitude);
-      
+
+      final newLocation = LatLng(
+        locations.first.latitude,
+        locations.first.longitude,
+      );
+
       setState(() {
         _currentLatLng = newLocation;
         _selectedLocation = address;
@@ -1077,7 +1266,6 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
       // Move map and reverse geocode
       _mapController.move(newLocation, 14.0);
       await _reverseGeocode(newLocation);
-
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1097,7 +1285,7 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
   // Get current location
   Future<void> _getCurrentLocation() async {
     setState(() => _isGettingLocation = true);
-    
+
     try {
       // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -1134,7 +1322,9 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Location permissions are permanently denied. Please enable in settings.'),
+              content: Text(
+                'Location permissions are permanently denied. Please enable in settings.',
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -1150,7 +1340,7 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
       );
 
       final newLocation = LatLng(position.latitude, position.longitude);
-      
+
       setState(() {
         _currentLatLng = newLocation;
         _selectedLocation = 'Current Location';
@@ -1160,7 +1350,6 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
       // Move map and reverse geocode
       _mapController.move(newLocation, 14.0);
       await _reverseGeocode(newLocation);
-
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1218,7 +1407,11 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
                 ),
                 TextButton(
                   onPressed: () {
-                    widget.onLocationChanged(_currentAddress.isNotEmpty ? _currentAddress : _selectedLocation);
+                    widget.onLocationChanged(
+                      _currentAddress.isNotEmpty
+                          ? _currentAddress
+                          : _selectedLocation,
+                    );
                     widget.onProximityChanged(_selectedProximity);
                     Navigator.pop(context);
                   },
@@ -1253,7 +1446,8 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.flutter_application_1',
                     ),
                     // Radius circle (blue overlay like Facebook Marketplace)
@@ -1288,7 +1482,10 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
                   left: 12,
                   right: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
@@ -1310,7 +1507,9 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            _currentAddress.isNotEmpty ? _currentAddress : _selectedLocation,
+                            _currentAddress.isNotEmpty
+                                ? _currentAddress
+                                : _selectedLocation,
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
@@ -1387,7 +1586,10 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
                     Expanded(
                       child: Container(
                         decoration: BoxDecoration(
-                          border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
+                          border: Border.all(
+                            color: FreshCycleTheme.borderColor,
+                            width: 0.5,
+                          ),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: TextField(
@@ -1400,7 +1602,10 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
                               color: FreshCycleTheme.textSecondary,
                             ),
                             border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
                             suffixIcon: _isSearching
                                 ? const Padding(
                                     padding: EdgeInsets.all(12),
@@ -1414,13 +1619,13 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
                                     ),
                                   )
                                 : _locationController.text.isNotEmpty
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear, size: 18),
-                                        onPressed: () {
-                                          _locationController.clear();
-                                        },
-                                      )
-                                    : null,
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18),
+                                    onPressed: () {
+                                      _locationController.clear();
+                                    },
+                                  )
+                                : null,
                           ),
                           onSubmitted: (value) {
                             if (value.isNotEmpty) {
@@ -1434,12 +1639,20 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
                     // Quick select dropdown
                     Container(
                       decoration: BoxDecoration(
-                        border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
+                        border: Border.all(
+                          color: FreshCycleTheme.borderColor,
+                          width: 0.5,
+                        ),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
-                          value: widget.availableLocations.contains(_selectedLocation) ? _selectedLocation : null,
+                          value:
+                              widget.availableLocations.contains(
+                                _selectedLocation,
+                              )
+                              ? _selectedLocation
+                              : null,
                           hint: const Padding(
                             padding: EdgeInsets.symmetric(horizontal: 8),
                             child: Text('Presets'),
@@ -1461,7 +1674,9 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
                               setState(() {
                                 _selectedLocation = value;
                                 _locationController.text = value;
-                                _currentLatLng = widget.locationCoordinates[value] ?? LatLng(14.6534, 121.0681);
+                                _currentLatLng =
+                                    widget.locationCoordinates[value] ??
+                                    LatLng(14.6534, 121.0681);
                                 _mapController.move(_currentLatLng, 12.0);
                               });
                               _reverseGeocode(_currentLatLng);
@@ -1495,7 +1710,9 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
                     activeTrackColor: FreshCycleTheme.primary,
-                    inactiveTrackColor: FreshCycleTheme.primary.withOpacity(0.2),
+                    inactiveTrackColor: FreshCycleTheme.primary.withOpacity(
+                      0.2,
+                    ),
                     thumbColor: FreshCycleTheme.primary,
                     overlayColor: FreshCycleTheme.primary.withOpacity(0.1),
                     valueIndicatorColor: FreshCycleTheme.primary,
@@ -1508,7 +1725,7 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
                   ),
                   child: Slider(
                     value: _selectedProximity,
-                    min: 1.0,  // 1km minimum
+                    min: 1.0, // 1km minimum
                     max: 10.0, // 10km maximum
                     divisions: 90, // 0.1 km increments for granular control
                     label: '${_selectedProximity.toStringAsFixed(1)} km',
@@ -1550,7 +1767,9 @@ class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
           color: isSelected ? FreshCycleTheme.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? FreshCycleTheme.primary : FreshCycleTheme.borderColor,
+            color: isSelected
+                ? FreshCycleTheme.primary
+                : FreshCycleTheme.borderColor,
             width: 0.5,
           ),
         ),
@@ -1599,11 +1818,7 @@ class _LocationPin extends StatelessWidget {
             color: FreshCycleTheme.primary,
             shape: BoxShape.circle,
           ),
-          child: const Icon(
-            Icons.location_on,
-            color: Colors.white,
-            size: 20,
-          ),
+          child: const Icon(Icons.location_on, color: Colors.white, size: 20),
         ),
         // Pin center dot
         Container(
