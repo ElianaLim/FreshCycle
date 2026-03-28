@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/listing.dart';
+import '../models/messages.dart';
 import '../data/sample_data.dart';
 import '../theme/app_theme.dart';
 import '../widgets/selling_card.dart';
@@ -8,6 +9,8 @@ import 'messages_screen.dart';
 import 'post_listing_screen.dart';
 import 'package:provider/provider.dart';
 import '../providers/listing_provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/messages_provider.dart';
 import 'listing_detail_screen.dart';
 import 'saved_items_screen.dart';
 
@@ -625,10 +628,80 @@ class _RequestsTab extends StatelessWidget {
   }
 }
 
-class _MessageSheet extends StatelessWidget {
+class _MessageSheet extends StatefulWidget {
   final Listing listing;
 
   const _MessageSheet({required this.listing});
+
+  @override
+  State<_MessageSheet> createState() => _MessageSheetState();
+}
+
+class _MessageSheetState extends State<_MessageSheet> {
+  final TextEditingController _messageController = TextEditingController();
+  bool _isSending = false;
+
+  Future<void> _sendMessage(String text) async {
+    if (text.trim().isEmpty) return;
+    
+    setState(() => _isSending = true);
+    
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final messagesProvider = context.read<MessagesProvider>();
+      
+      if (authProvider.user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please log in to send messages')),
+          );
+        }
+        return;
+      }
+
+      // Start or get existing conversation
+      final conversation = await messagesProvider.startConversation(
+        participantId: widget.listing.seller.id,
+        participantName: widget.listing.seller.name,
+        participantInitials: widget.listing.seller.initials,
+        participantIsVerified: widget.listing.seller.isVerified,
+        context: ConversationContext.listing,
+        relatedListingId: widget.listing.id,
+        relatedListingTitle: widget.listing.title,
+        initialMessage: text,
+      );
+
+      if (mounted) {
+        Navigator.pop(context);
+        
+        // Navigate to messages screen
+        if (conversation != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const MessagesScreen(),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send message: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -654,7 +727,7 @@ class _MessageSheet extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'Message ${listing.seller.name}',
+              'Message ${widget.listing.seller.name}',
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -663,7 +736,7 @@ class _MessageSheet extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Re: ${listing.title}',
+              'Re: ${widget.listing.title}',
               style: const TextStyle(
                 fontSize: 13,
                 color: FreshCycleTheme.textSecondary,
@@ -681,7 +754,7 @@ class _MessageSheet extends StatelessWidget {
               ]
                   .map(
                     (msg) => GestureDetector(
-                      onTap: () => Navigator.pop(context),
+                      onTap: () => _sendMessage(msg),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 8),
@@ -708,6 +781,7 @@ class _MessageSheet extends StatelessWidget {
               children: [
                 Expanded(
                   child: TextField(
+                    controller: _messageController,
                     autofocus: true,
                     decoration: InputDecoration(
                       hintText: 'Write a message...',
@@ -735,7 +809,7 @@ class _MessageSheet extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 FilledButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: _isSending ? null : () => _sendMessage(_messageController.text),
                   style: FilledButton.styleFrom(
                     backgroundColor: FreshCycleTheme.primary,
                     shape: RoundedRectangleBorder(
@@ -743,8 +817,17 @@ class _MessageSheet extends StatelessWidget {
                     ),
                     padding: const EdgeInsets.all(14),
                   ),
-                  child: const Icon(Icons.send_rounded,
-                      size: 18, color: Colors.white),
+                  child: _isSending
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded,
+                          size: 18, color: Colors.white),
                 ),
               ],
             ),
