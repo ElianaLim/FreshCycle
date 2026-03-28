@@ -568,7 +568,7 @@ class _PantryScreenState extends State<PantryScreen> {
             child: Padding(
               padding: EdgeInsets.fromLTRB(16, expiring.isEmpty ? 16 : 8, 16, 8),
               child: const Text(
-                'All Items',
+                'Other Items',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
