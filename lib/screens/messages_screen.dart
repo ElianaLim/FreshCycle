@@ -621,6 +621,7 @@ class _ChatScreenState extends State<_ChatScreen> {
                 final showDateSeparator = i == 0 ||
                     !_sameDay(_messages[i - 1].sentAt, msg.sentAt);
                 return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (showDateSeparator) _DateSeparator(date: msg.sentAt),
                     _MessageBubble(message: msg, isMe: isMe),
