@@ -6,28 +6,25 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DB {
   static SupabaseClient? _client;
-  
+
   static SupabaseClient get client {
     if (_client == null) {
       throw Exception('Supabase not initialized. Call DB.init() first.');
     }
     return _client!;
   }
-  
+
   static Future<void> init() async {
     await dotenv.load(fileName: '.env');
-    
+
     final url = dotenv.env['SUPABASE_URL'] ?? '';
     final key = dotenv.env['SUPABASE_KEY'] ?? '';
-    
-    await Supabase.initialize(
-      url: url,
-      anonKey: key,
-    );
-    
+
+    await Supabase.initialize(url: url, anonKey: key);
+
     _client = Supabase.instance.client;
   }
-  
+
   // Register new user - insert into profiles table
   static Future<Map<String, dynamic>?> registerUser({
     required String name,
@@ -41,22 +38,22 @@ class DB {
         email: email,
         password: password,
       );
-      
+
       if (authResponse.user == null) {
         return null;
       }
-      
+
       // Then insert into profiles table
       final userId = authResponse.user!.id;
       final initials = _getInitials(name);
-      
+
       // Set the session to establish auth context for RLS
       final session = authResponse.session;
       final refreshToken = session?.refreshToken;
       if (refreshToken != null && refreshToken.isNotEmpty) {
         await _client!.auth.setSession(refreshToken);
       }
-      
+
       await _client!.from('profiles').insert({
         'id': userId,
         'name': name,
@@ -64,23 +61,23 @@ class DB {
         'initials': initials,
         'created_at': DateTime.now().toIso8601String(),
         'phone_number': number,
-        'points' : 0,
+        'points': 0,
       });
-      
+
       return {
         'id': userId,
         'name': name,
         'email': email,
         'initials': initials,
         'phone_number': number,
-        'points' : 0,
+        'points': 0,
       };
     } catch (e) {
       print('Registration error: $e');
       return null;
     }
   }
-  
+
   // Login user - simple email/password check against profiles table
   static Future<Map<String, dynamic>?> loginUser({
     required String email,
@@ -92,30 +89,30 @@ class DB {
         email: email,
         password: password,
       );
-      
+
       if (authResponse.user == null) {
         return null;
       }
-      
+
       // Get user profile from profiles table
       final response = await _client!
           .from('profiles')
           .select()
           .eq('id', authResponse.user!.id)
           .maybeSingle();
-      
+
       return response;
     } catch (e) {
       print('Login error: $e');
       return null;
     }
   }
-  
+
   // Logout
   static Future<void> logout() async {
     await _client!.auth.signOut();
   }
-  
+
   // Change password
   static Future<bool> changePassword({
     required String currentPassword,
@@ -127,29 +124,29 @@ class DB {
         email: _client!.auth.currentUser?.email ?? '',
         password: currentPassword,
       );
-      
+
       if (verifyResult.user == null) {
         return false;
       }
-      
+
       // Now update the password
       final response = await _client!.auth.updateUser(
         UserAttributes(password: newPassword),
       );
-      
+
       return response.user != null;
     } catch (e) {
       print('Change password error: $e');
       return false;
     }
   }
-  
+
   // Get current user
   static Map<String, dynamic>? getCurrentUser() {
     final user = _client!.auth.currentUser;
     return user != null ? {'id': user.id, 'email': user.email} : null;
   }
-  
+
   // Get user profile
   static Future<Map<String, dynamic>?> getProfile(String userId) async {
     try {
@@ -164,7 +161,7 @@ class DB {
       return null;
     }
   }
-  
+
   // Update user profile
   static Future<bool> updateProfile({
     required String userId,
@@ -186,9 +183,9 @@ class DB {
       if (phoneNumber != null) {
         updateData['phone_number'] = phoneNumber;
       }
-      
+
       if (updateData.isEmpty) return true;
-      
+
       await _client!.from('profiles').update(updateData).eq('id', userId);
       return true;
     } catch (e) {
@@ -222,7 +219,9 @@ class DB {
   // ── Conversations & Messages ─────────────────────────────────────────────────
 
   /// Get all conversations for a user
-  static Future<List<Map<String, dynamic>>> getConversations(String userId) async {
+  static Future<List<Map<String, dynamic>>> getConversations(
+    String userId,
+  ) async {
     try {
       final response = await _client!
           .from('conversations')
@@ -236,8 +235,27 @@ class DB {
     }
   }
 
+  /// Get one conversation by id
+  static Future<Map<String, dynamic>?> getConversationById(
+    String conversationId,
+  ) async {
+    try {
+      final response = await _client!
+          .from('conversations')
+          .select()
+          .eq('id', conversationId)
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      print('Get conversation by id error: $e');
+      return null;
+    }
+  }
+
   /// Get messages for a conversation
-  static Future<List<Map<String, dynamic>>> getMessages(String conversationId) async {
+  static Future<List<Map<String, dynamic>>> getMessages(
+    String conversationId,
+  ) async {
     try {
       final response = await _client!
           .from('messages')
@@ -272,9 +290,10 @@ class DB {
       });
 
       // Update conversation's updated_at
-      await _client!.from('conversations').update({
-        'updated_at': now,
-      }).eq('id', conversationId);
+      await _client!
+          .from('conversations')
+          .update({'updated_at': now})
+          .eq('id', conversationId);
 
       return {
         'id': messageId,
@@ -353,12 +372,16 @@ class DB {
     String? relatedListingId,
   }) async {
     try {
-      var query = _client!.from('conversations').select().eq('user_id', userId).eq('participant_id', participantId);
-      
+      var query = _client!
+          .from('conversations')
+          .select()
+          .eq('user_id', userId)
+          .eq('participant_id', participantId);
+
       if (relatedListingId != null) {
         query = query.eq('related_listing_id', relatedListingId);
       }
-      
+
       final response = await query.maybeSingle();
       return response;
     } catch (e) {
@@ -368,11 +391,16 @@ class DB {
   }
 
   /// Mark messages as read
-  static Future<void> markMessagesAsRead(String conversationId, String userId) async {
+  static Future<void> markMessagesAsRead(
+    String conversationId,
+    String userId,
+  ) async {
     try {
-      await _client!.from('messages').update({
-        'status': 'read',
-      }).eq('conversation_id', conversationId).neq('sender_id', userId);
+      await _client!
+          .from('messages')
+          .update({'status': 'read'})
+          .eq('conversation_id', conversationId)
+          .neq('sender_id', userId);
     } catch (e) {
       print('Mark messages as read error: $e');
     }
@@ -381,7 +409,9 @@ class DB {
   // ── Notifications ─────────────────────────────────────────────────
 
   /// Get all notifications for a user
-  static Future<List<Map<String, dynamic>>> getNotifications(String userId) async {
+  static Future<List<Map<String, dynamic>>> getNotifications(
+    String userId,
+  ) async {
     try {
       final response = await _client!
           .from('notifications')
@@ -453,9 +483,10 @@ class DB {
   /// Mark a notification as read
   static Future<void> markNotificationAsRead(String notificationId) async {
     try {
-      await _client!.from('notifications').update({
-        'is_read': true,
-      }).eq('id', notificationId);
+      await _client!
+          .from('notifications')
+          .update({'is_read': true})
+          .eq('id', notificationId);
     } catch (e) {
       print('Mark notification as read error: $e');
     }
@@ -464,9 +495,11 @@ class DB {
   /// Mark all notifications as read for a user
   static Future<void> markAllNotificationsAsRead(String userId) async {
     try {
-      await _client!.from('notifications').update({
-        'is_read': true,
-      }).eq('user_id', userId).eq('is_read', false);
+      await _client!
+          .from('notifications')
+          .update({'is_read': true})
+          .eq('user_id', userId)
+          .eq('is_read', false);
     } catch (e) {
       print('Mark all notifications as read error: $e');
     }
@@ -526,7 +559,8 @@ class DB {
       userId: sellerId,
       type: 'offerReceived',
       title: 'New offer',
-      body: '$offererName offered ₱${offerAmount.toStringAsFixed(0)} for "$listingTitle"',
+      body:
+          '$offererName offered ₱${offerAmount.toStringAsFixed(0)} for "$listingTitle"',
       relatedId: listingId,
     );
   }

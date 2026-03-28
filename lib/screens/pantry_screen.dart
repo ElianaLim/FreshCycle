@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 import '../data/db.dart';
 import '../providers/notifications_provider.dart';
@@ -138,7 +139,11 @@ class _PantryScreenState extends State<PantryScreen> {
   // ── Urgency helpers ─────────────────────────────────────────────────────────
 
   UrgencyLevel _calculateUrgency(DateTime expiry) {
-    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
     final expiryDay = DateTime(expiry.year, expiry.month, expiry.day);
     final diff = expiryDay.difference(today).inDays;
     if (diff <= 1) return UrgencyLevel.critical;
@@ -160,6 +165,7 @@ class _PantryScreenState extends State<PantryScreen> {
     });
   }
 
+  // 3. The Interactive Bottom Sheet for Adding & Editing
   String lookupScannedName(String scannedCode) {
     const demoDatabase = {'1200108000240': 'Cheetos Crunchy 250g'};
     return demoDatabase[scannedCode] ?? 'Scanned Item ($scannedCode)';
@@ -170,7 +176,9 @@ class _PantryScreenState extends State<PantryScreen> {
   void _showAddItemSheet({PantryItem? existingItem, int? index}) {
     final isEditing = existingItem != null;
     final nameController = TextEditingController(text: existingItem?.name);
-    final costController = TextEditingController(text: existingItem?.cost?.toString());
+    final costController = TextEditingController(
+      text: existingItem?.cost?.toString(),
+    );
     final relativeDaysController = TextEditingController(
       text: (existingItem != null && existingItem.expiryType == ExpiryType.relative)
           ? existingItem.relativeDays.toString()
@@ -633,6 +641,23 @@ class _PantryScreenState extends State<PantryScreen> {
                     color: urgencyBgColor(item.urgency),
                     borderRadius: BorderRadius.circular(8),
                   ),
+                  child: _buildCategoryIcon(
+                    item.categoryIcon,
+                    size: 18,
+                    color: urgencyColor(item.urgency),
+                  ),
+                ),
+                const Spacer(),
+                PopupMenuButton<String>(
+                  icon: const Icon(
+                    Icons.more_vert_rounded,
+                    size: 18,
+                    color: FreshCycleTheme.textSecondary,
+                  ),
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: Icon(item.categoryIcon,
                       size: 18, color: urgencyColor(item.urgency)),
                 ),
@@ -754,8 +779,27 @@ class _PantryScreenState extends State<PantryScreen> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: FreshCycleTheme.urgencyCritical.withValues(alpha: 0.15),
+                    color: FreshCycleTheme.urgencyCritical.withValues(
+                      alpha: 0.15,
+                    ),
                     borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: _buildCategoryIcon(
+                    item.categoryIcon,
+                    size: 18,
+                    color: FreshCycleTheme.urgencyCritical,
+                  ),
+                ),
+                const Spacer(),
+                PopupMenuButton<String>(
+                  icon: const Icon(
+                    Icons.more_vert_rounded,
+                    size: 18,
+                    color: FreshCycleTheme.textSecondary,
+                  ),
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(item.categoryIcon,
                       size: 18, color: FreshCycleTheme.urgencyCritical),
@@ -851,11 +895,19 @@ class _PantryScreenState extends State<PantryScreen> {
                   color: urgencyBgColor(item.urgency),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(item.categoryIcon, color: urgencyColor(item.urgency)),
+                child: _buildCategoryIcon(
+                  item.categoryIcon,
+                  size: 24,
+                  color: urgencyColor(item.urgency),
+                ),
               ),
-              title: Text(item.name,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 16)),
+              title: Text(
+                item.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
               subtitle: Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Wrap(
@@ -1290,4 +1342,18 @@ class _PantryScreenState extends State<PantryScreen> {
       ),
     );
   }
+}
+
+Widget _buildCategoryIcon(
+  dynamic icon, {
+  required double size,
+  required Color color,
+}) {
+  if (icon is IconData) {
+    return Icon(icon, size: size, color: color);
+  }
+  if (icon is List<List<dynamic>>) {
+    return HugeIcon(icon: icon, size: size, color: color);
+  }
+  return Icon(Icons.inventory_2_outlined, size: size, color: color);
 }

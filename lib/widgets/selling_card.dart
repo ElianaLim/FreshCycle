@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import '../models/listing.dart';
 import '../theme/app_theme.dart';
 import 'common_widgets.dart';
@@ -209,26 +210,35 @@ class SellingCard extends StatelessWidget {
   }
 
   Widget _buildPlaceholder() {
+    final categoryIcon = _categoryIcon(listing.category);
     return Container(
       height: 120,
       width: double.infinity,
       color: FreshCycleTheme.surfaceGray,
-      child: Center(
-        child: Icon(
-          _categoryIcon(listing.category),
-          size: 48,
-          color: FreshCycleTheme.borderColor,
-        ),
-      ),
+      child: Center(child: _buildCategoryIconWidget(categoryIcon)),
     );
   }
 
-  IconData _categoryIcon(String category) {
+  Widget _buildCategoryIconWidget(dynamic icon) {
+    if (icon is IconData) {
+      return Icon(icon, size: 48, color: FreshCycleTheme.borderColor);
+    }
+    if (icon is List<List<dynamic>>) {
+      return HugeIcon(icon: icon, size: 48, color: FreshCycleTheme.borderColor);
+    }
+    return const Icon(
+      Icons.shopping_bag_outlined,
+      size: 48,
+      color: FreshCycleTheme.borderColor,
+    );
+  }
+
+  dynamic _categoryIcon(String category) {
     switch (category.toLowerCase()) {
       case 'produce':
         return Icons.eco_outlined;
       case 'dairy':
-        return Icons.egg_outlined;
+        return HugeIcons.strokeRoundedMilkBottle;
       case 'bakery':
         return Icons.bakery_dining_outlined;
       case 'meat & fish':
