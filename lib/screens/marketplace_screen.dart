@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 import '../models/listing.dart';
 import '../models/messages.dart';
-import '../data/sample_data.dart';
 import '../theme/app_theme.dart';
 import '../widgets/selling_card.dart';
+import '../widgets/location_settings_sheet.dart';
 import '../widgets/request_card.dart';
 import 'messages_screen.dart';
 import 'post_listing_screen.dart';
+import 'post_request_screen.dart';
 import 'package:provider/provider.dart';
 import '../providers/listing_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/messages_provider.dart';
 import 'listing_detail_screen.dart';
+import 'request_detail_screen.dart';
 import 'saved_items_screen.dart';
+import '../data/db.dart';
 
 class MarketplaceScreen extends StatefulWidget {
   const MarketplaceScreen({super.key});
@@ -29,46 +29,31 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _selectedCategory = 'All';
+  String _selectedRequestStatus = 'All';
+  String _selectedRequestCategory = 'All';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
-  // Location and proximity settings
-  String _currentLocation = 'Diliman, Quezon City';
+  // Location and proximity settings - loaded from DB
+  String _currentLocation = 'Select Location';
   double _proximityRadius = 5.0;
+  LatLng? _currentLatLng;
 
-  final List<String> _availableLocations = [
-    'Diliman, Quezon City',
-    'Makati City',
-    'Manila City',
-    'Caloocan City',
-    'Pasay City',
-    'Taguig City',
-    'Cebu City',
-    'Davao City',
-  ];
-
-  // Location name to coordinates mapping
-  final Map<String, LatLng> _locationCoordinates = {
-    'Diliman, Quezon City': LatLng(14.6534, 121.0681),
-    'Makati City': LatLng(14.5547, 121.0244),
-    'Manila City': LatLng(14.5995, 120.9842),
-    'Caloocan City': LatLng(14.6578, 121.0311),
-    'Pasay City': LatLng(14.5083, 121.0539),
-    'Taguig City': LatLng(14.5176, 121.0502),
-    'Cebu City': LatLng(10.3157, 123.8854),
-    'Davao City': LatLng(7.0731, 125.6128),
-  };
+  // Default fallback coordinates (only used when no saved location)
+  static const LatLng _defaultLocation = LatLng(14.6534, 121.0681);
 
   final List<double> _proximityOptions = [1.0, 2.0, 5.0, 10.0, 20.0, 50.0];
 
   List<String> get _sellingCategories => FreshCycleTheme.foodCategories;
 
-  final List<String> _requestCategories = [
+  List<String> get _requestStatusFilters => const [
     'All',
     'Urgent',
     'Nearby',
     'No offers',
   ];
+
+  List<String> get _requestCategories => FreshCycleTheme.foodCategories;
 
   @override
   void initState() {
@@ -77,8 +62,55 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
     _tabController.addListener(() {
       setState(() {
         _selectedCategory = 'All';
+        _selectedRequestStatus = 'All';
+        _selectedRequestCategory = 'All';
       });
     });
+    // Load location settings from DB
+    _loadLocationSettings();
+  }
+
+  Future<void> _loadLocationSettings() async {
+    try {
+      final deviceId = await DB.getDeviceId();
+      final settings = await DB.getLocationSettings(deviceId);
+      
+      if (settings != null && mounted) {
+        setState(() {
+          _currentLocation = settings['location_name'] ?? 'Select Location';
+          _proximityRadius = (settings['proximity_radius'] ?? 5.0).toDouble();
+          _currentLatLng = LatLng(
+            (settings['latitude'] ?? 14.6534).toDouble(),
+            (settings['longitude'] ?? 121.0681).toDouble(),
+          );
+        });
+      } else if (mounted) {
+        setState(() {
+          _currentLatLng = _defaultLocation;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _currentLatLng = _defaultLocation;
+        });
+      }
+    }
+  }
+
+  Future<void> _saveLocationSettings(String location, LatLng latLng, double proximity) async {
+    try {
+      final deviceId = await DB.getDeviceId();
+      await DB.saveLocationSettings(
+        deviceId: deviceId,
+        locationName: location,
+        latitude: latLng.latitude,
+        longitude: latLng.longitude,
+        proximityRadius: proximity,
+      );
+    } catch (e) {
+      print('Failed to save location settings: $e');
+    }
   }
 
   @override
@@ -89,7 +121,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
   }
 
   List<Listing> _getFilteredListings(BuildContext context) {
-    // Read from the provider instead of sampleListings directly
     List<Listing> listings = context.watch<ListingProvider>().listings;
 
     if (_selectedCategory != 'All') {
@@ -114,8 +145,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
   }
 
   List<Listing> get _filteredRequests {
-    List<Listing> requests = sampleRequests;
-    switch (_selectedCategory) {
+    List<Listing> requests = context.watch<ListingProvider>().requests;
+    switch (_selectedRequestStatus) {
       case 'Urgent':
         requests = requests
             .where((r) => r.urgency == UrgencyLevel.critical)
@@ -127,6 +158,18 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
       case 'No offers':
         requests = requests.where((r) => (r.offerCount ?? 0) == 0).toList();
         break;
+      case 'All':
+        break;
+    }
+
+    if (_selectedRequestCategory != 'All') {
+      requests = requests
+          .where(
+            (r) =>
+                r.category.toLowerCase() ==
+                _selectedRequestCategory.toLowerCase(),
+          )
+          .toList();
     }
     if (_searchQuery.isNotEmpty) {
       requests = requests
@@ -152,7 +195,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
     }
 
     final messagesProvider = context.read<MessagesProvider>();
-    await messagesProvider.initialize(auth.user!.id);
+    messagesProvider.setCurrentUser(auth.user!.id);
 
     final conversation = await messagesProvider.startConversation(
       participantId: listing.seller.id,
@@ -187,8 +230,69 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
     );
   }
 
-  void _showOfferSheet(BuildContext context, Listing listing) {
-    showModalBottomSheet(
+  Future<void> _openRequestConversation(
+    BuildContext context,
+    Listing request, {
+    bool fromRequestDetail = false,
+  }) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to send messages.')),
+      );
+      return;
+    }
+
+    final messagesProvider = context.read<MessagesProvider>();
+    messagesProvider.setCurrentUser(auth.user!.id);
+
+    final conversation = await messagesProvider.startConversation(
+      participantId: request.seller.id,
+      participantName: request.seller.name,
+      participantInitials: request.seller.initials,
+      participantIsVerified: request.seller.isVerified,
+      participantBarangay: request.seller.barangay,
+      context: ConversationContext.request,
+      relatedListingId: request.id,
+      relatedListingTitle: request.title,
+      initialMessage: null,
+    );
+
+    if (!context.mounted || conversation == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          conversation: conversation,
+          currentUserId: auth.user!.id,
+          showListingPreview: fromRequestDetail,
+          quickQuestions: fromRequestDetail
+              ? const [
+                  'Can you meet today?',
+                  'What quantity do you need?',
+                  'Where is the pickup point?',
+                ]
+              : const [],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showOfferSheet(
+    BuildContext context,
+    Listing listing, {
+    bool fromRequestDetail = false,
+  }) async {
+    final auth = context.read<AuthProvider>();
+    if (auth.user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to send offers.')),
+      );
+      return;
+    }
+
+    final offerText = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
@@ -196,6 +300,62 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => _OfferSheet(listing: listing),
+    );
+
+    if (!context.mounted) return;
+    if (offerText == null || offerText.trim().isEmpty) return;
+
+    final messagesProvider = context.read<MessagesProvider>();
+    messagesProvider.setCurrentUser(auth.user!.id);
+
+    final conversation = await messagesProvider.startConversation(
+      participantId: listing.seller.id,
+      participantName: listing.seller.name,
+      participantInitials: listing.seller.initials,
+      participantIsVerified: listing.seller.isVerified,
+      participantBarangay: listing.seller.barangay,
+      context: ConversationContext.request,
+      relatedListingId: listing.id,
+      relatedListingTitle: listing.title,
+      initialMessage: null,
+    );
+
+    if (!context.mounted || conversation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open chat right now.')),
+      );
+      return;
+    }
+
+    final sent = await messagesProvider.sendMessage(
+      conversationId: conversation.id,
+      text: '[OFFER] ${offerText.trim()}',
+    );
+
+    if (!context.mounted) return;
+    if (!sent) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to send offer. Please retry.')),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          conversation: conversation,
+          currentUserId: auth.user!.id,
+          showListingPreview: true,
+          quickQuestions: fromRequestDetail
+              ? const [
+                  'Can you meet today?',
+                  'What quantity do you need?',
+                  'Where is the pickup point?',
+                ]
+              : const [],
+        ),
+      ),
     );
   }
 
@@ -229,7 +389,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
               Navigator.pop(ctx);
 
               final messagesProvider = context.read<MessagesProvider>();
-              await messagesProvider.initialize(auth.user!.id);
+              messagesProvider.setCurrentUser(auth.user!.id);
 
               final conversation = await messagesProvider.startConversation(
                 participantId: listing.seller.id,
@@ -255,7 +415,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
                         '[BUY_REQUEST] Hi! I would like to buy "${listing.title}" for ₱$priceLabel. Is this still available?',
                   );
 
-                  // Refresh to avoid duplicate buy request sends on the next open.
                   await messagesProvider.loadConversations();
                 }
               }
@@ -307,17 +466,25 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => _LocationSettingsSheet(
+      builder: (ctx) => LocationSettingsSheet(
         currentLocation: _currentLocation,
+        currentLatLng: _currentLatLng ?? _defaultLocation,
         proximityRadius: _proximityRadius,
-        availableLocations: _availableLocations,
         proximityOptions: _proximityOptions,
-        locationCoordinates: _locationCoordinates,
-        onLocationChanged: (location) {
-          setState(() => _currentLocation = location);
+        onLocationChanged: (location, latLng) {
+          setState(() {
+            _currentLocation = location;
+            _currentLatLng = latLng;
+          });
+          // Save to DB
+          _saveLocationSettings(location, latLng, _proximityRadius);
         },
         onProximityChanged: (proximity) {
           setState(() => _proximityRadius = proximity);
+          // Save to DB
+          if (_currentLatLng != null) {
+            _saveLocationSettings(_currentLocation, _currentLatLng!, proximity);
+          }
         },
       ),
     );
@@ -331,9 +498,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
             backgroundColor: Colors.white,
-            floating: true,
-            snap: true,
-            pinned: false,
+            floating: false,
+            snap: false,
+            pinned: true,
             elevation: 0,
             scrolledUnderElevation: 0,
             title: Column(
@@ -407,14 +574,13 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
               preferredSize: const Size.fromHeight(100),
               child: Column(
                 children: [
-                  // Search bar
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                     child: TextField(
                       controller: _searchController,
                       onChanged: (v) => setState(() => _searchQuery = v),
                       decoration: InputDecoration(
-                        hintText: 'Search near-expiry food...',
+                        hintText: 'Search listings and requests...',
                         prefixIcon: const Icon(
                           Icons.search_rounded,
                           size: 20,
@@ -463,11 +629,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
                       ),
                     ),
                   ),
-                  // Tab bar
                   TabBar(
                     controller: _tabController,
                     tabs: const [
-                      Tab(text: 'Near-expiry listings'),
+                      Tab(text: 'Listings'),
                       Tab(text: 'Requests'),
                     ],
                     labelColor: FreshCycleTheme.primary,
@@ -507,26 +672,50 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
             _RequestsTab(
               requests: _filteredRequests,
               categories: _requestCategories,
-              selectedCategory: _selectedCategory,
-              onCategorySelected: (c) => setState(() => _selectedCategory = c),
+              statusFilters: _requestStatusFilters,
+              selectedStatus: _selectedRequestStatus,
+              selectedCategory: _selectedRequestCategory,
+              onStatusSelected: (v) =>
+                  setState(() => _selectedRequestStatus = v),
+              onCategorySelected: (c) =>
+                  setState(() => _selectedRequestCategory = c),
               onOffer: (l) => _showOfferSheet(context, l),
+              onOfferFromDetail: (l) =>
+                  _showOfferSheet(context, l, fromRequestDetail: true),
+              onMessageFromDetail: (l) =>
+                  _openRequestConversation(context, l, fromRequestDetail: true),
             ),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const PostListingScreen()),
-          );
+          if (_tabController.index == 0) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const PostListingScreen(),
+              ),
+            );
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const PostRequestScreen(),
+              ),
+            );
+          }
         },
         backgroundColor: FreshCycleTheme.primary,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text(
-          'Post listing',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        icon: Icon(
+          _tabController.index == 0
+              ? Icons.add_rounded
+              : Icons.playlist_add_rounded,
+        ),
+        label: Text(
+          _tabController.index == 0 ? 'Post listing' : 'Make request',
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -600,11 +789,19 @@ class _CategoryFilter extends StatelessWidget {
   final List<String> categories;
   final String selected;
   final ValueChanged<String> onSelected;
+  final Color selectedColor;
+  final Color selectedTextColor;
+  final Color unselectedBackgroundColor;
+  final Color unselectedTextColor;
 
   const _CategoryFilter({
     required this.categories,
     required this.selected,
     required this.onSelected,
+    this.selectedColor = FreshCycleTheme.primary,
+    this.selectedTextColor = Colors.white,
+    this.unselectedBackgroundColor = Colors.white,
+    this.unselectedTextColor = FreshCycleTheme.textSecondary,
   });
 
   @override
@@ -625,11 +822,11 @@ class _CategoryFilter extends StatelessWidget {
               duration: const Duration(milliseconds: 150),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
-                color: isSelected ? FreshCycleTheme.primary : Colors.white,
+                color: isSelected ? selectedColor : unselectedBackgroundColor,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: isSelected
-                      ? FreshCycleTheme.primary
+                      ? selectedColor
                       : FreshCycleTheme.borderColor,
                   width: 0.5,
                 ),
@@ -639,9 +836,7 @@ class _CategoryFilter extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: isSelected
-                      ? Colors.white
-                      : FreshCycleTheme.textSecondary,
+                  color: isSelected ? selectedTextColor : unselectedTextColor,
                 ),
               ),
             ),
@@ -713,7 +908,6 @@ class _ListingsTab extends StatelessWidget {
               delegate: SliverChildBuilderDelegate(
                 (context, i) => SellingCard(
                   listing: listings[i],
-                  // Connect the Tap here
                   onTap: () {
                     Navigator.push(
                       context,
@@ -741,16 +935,26 @@ class _ListingsTab extends StatelessWidget {
 class _RequestsTab extends StatelessWidget {
   final List<Listing> requests;
   final List<String> categories;
+  final List<String> statusFilters;
+  final String selectedStatus;
   final String selectedCategory;
+  final ValueChanged<String> onStatusSelected;
   final ValueChanged<String> onCategorySelected;
   final void Function(Listing) onOffer;
+  final void Function(Listing) onOfferFromDetail;
+  final void Function(Listing) onMessageFromDetail;
 
   const _RequestsTab({
     required this.requests,
     required this.categories,
+    required this.statusFilters,
+    required this.selectedStatus,
     required this.selectedCategory,
+    required this.onStatusSelected,
     required this.onCategorySelected,
     required this.onOffer,
+    required this.onOfferFromDetail,
+    required this.onMessageFromDetail,
   });
 
   @override
@@ -763,9 +967,23 @@ class _RequestsTab extends StatelessWidget {
               const _StatsBar(),
               const SizedBox(height: 12),
               _CategoryFilter(
+                categories: statusFilters,
+                selected: selectedStatus,
+                onSelected: onStatusSelected,
+                selectedColor: FreshCycleTheme.requestColor,
+                selectedTextColor: Colors.white,
+                unselectedBackgroundColor: FreshCycleTheme.requestBg,
+                unselectedTextColor: FreshCycleTheme.requestColor,
+              ),
+              const SizedBox(height: 8),
+              _CategoryFilter(
                 categories: categories,
                 selected: selectedCategory,
                 onSelected: onCategorySelected,
+                selectedColor: FreshCycleTheme.primary,
+                selectedTextColor: Colors.white,
+                unselectedBackgroundColor: Colors.white,
+                unselectedTextColor: FreshCycleTheme.textSecondary,
               ),
               const SizedBox(height: 12),
             ],
@@ -789,7 +1007,18 @@ class _RequestsTab extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: RequestCard(
                     listing: requests[i],
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => RequestDetailScreen(
+                            request: requests[i],
+                            onOffer: () => onOfferFromDetail(requests[i]),
+                            onMessage: () => onMessageFromDetail(requests[i]),
+                          ),
+                        ),
+                      );
+                    },
                     onOffer: () => onOffer(requests[i]),
                   ),
                 ),
@@ -833,7 +1062,6 @@ class _MessageSheetState extends State<_MessageSheet> {
         return;
       }
 
-      // Start or get existing conversation
       final conversation = await messagesProvider.startConversation(
         participantId: widget.listing.seller.id,
         participantName: widget.listing.seller.name,
@@ -848,7 +1076,6 @@ class _MessageSheetState extends State<_MessageSheet> {
       if (mounted) {
         Navigator.pop(context);
 
-        // Navigate to messages screen
         if (conversation != null) {
           Navigator.push(
             context,
@@ -887,7 +1114,6 @@ class _MessageSheetState extends State<_MessageSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Handle
             Center(
               child: Container(
                 width: 36,
@@ -916,43 +1142,42 @@ class _MessageSheetState extends State<_MessageSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            // Quick reply chips
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children:
                   [
-                        'Is this still available?',
-                        'Can I pick up today?',
-                        'What time works for pickup?',
-                      ]
-                      .map(
-                        (msg) => GestureDetector(
-                          onTap: () => _sendMessage(msg),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: FreshCycleTheme.primaryLight,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: FreshCycleTheme.primary,
-                                width: 0.5,
-                              ),
-                            ),
-                            child: Text(
-                              msg,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: FreshCycleTheme.primaryDark,
-                              ),
-                            ),
+                    'Is this still available?',
+                    'Can I pick up today?',
+                    'What time works for pickup?',
+                  ]
+                  .map(
+                    (msg) => GestureDetector(
+                      onTap: () => _sendMessage(msg),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: FreshCycleTheme.primaryLight,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: FreshCycleTheme.primary,
+                            width: 0.5,
                           ),
                         ),
-                      )
-                      .toList(),
+                        child: Text(
+                          msg,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: FreshCycleTheme.primaryDark,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
             const SizedBox(height: 16),
             Row(
@@ -1030,10 +1255,23 @@ class _MessageSheetState extends State<_MessageSheet> {
   }
 }
 
-class _OfferSheet extends StatelessWidget {
+class _OfferSheet extends StatefulWidget {
   final Listing listing;
 
   const _OfferSheet({required this.listing});
+
+  @override
+  State<_OfferSheet> createState() => _OfferSheetState();
+}
+
+class _OfferSheetState extends State<_OfferSheet> {
+  final TextEditingController _offerController = TextEditingController();
+
+  @override
+  void dispose() {
+    _offerController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1067,7 +1305,7 @@ class _OfferSheet extends StatelessWidget {
               ),
             ),
             Text(
-              'Responding to: ${listing.title}',
+              'Responding to: ${widget.listing.title}',
               style: const TextStyle(
                 fontSize: 13,
                 color: FreshCycleTheme.textSecondary,
@@ -1075,6 +1313,14 @@ class _OfferSheet extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             TextField(
+              controller: _offerController,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) {
+                final offerText = _offerController.text.trim();
+                if (offerText.isNotEmpty) {
+                  Navigator.pop(context, offerText);
+                }
+              },
               decoration: InputDecoration(
                 hintText: 'Describe what you can offer...',
                 border: OutlineInputBorder(
@@ -1108,7 +1354,11 @@ class _OfferSheet extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  final offerText = _offerController.text.trim();
+                  if (offerText.isEmpty) return;
+                  Navigator.pop(context, offerText);
+                },
                 style: FilledButton.styleFrom(
                   backgroundColor: FreshCycleTheme.primary,
                   shape: RoundedRectangleBorder(
@@ -1130,706 +1380,6 @@ class _OfferSheet extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _LocationSettingsSheet extends StatefulWidget {
-  final String currentLocation;
-  final double proximityRadius;
-  final List<String> availableLocations;
-  final List<double> proximityOptions;
-  final ValueChanged<String> onLocationChanged;
-  final ValueChanged<double> onProximityChanged;
-  final Map<String, LatLng> locationCoordinates;
-
-  const _LocationSettingsSheet({
-    required this.currentLocation,
-    required this.proximityRadius,
-    required this.availableLocations,
-    required this.proximityOptions,
-    required this.onLocationChanged,
-    required this.onProximityChanged,
-    required this.locationCoordinates,
-  });
-
-  @override
-  State<_LocationSettingsSheet> createState() => _LocationSettingsSheetState();
-}
-
-class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
-  late String _selectedLocation;
-  late double _selectedProximity;
-  late LatLng _currentLatLng;
-  final MapController _mapController = MapController();
-  bool _isGettingLocation = false;
-  String _currentAddress = '';
-  final TextEditingController _locationController = TextEditingController();
-  bool _isSearching = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedLocation = widget.currentLocation;
-    _selectedProximity = widget.proximityRadius;
-    _currentLatLng =
-        widget.locationCoordinates[_selectedLocation] ??
-        LatLng(14.6534, 121.0681);
-    _locationController.text = _selectedLocation;
-    _reverseGeocode(_currentLatLng);
-  }
-
-  @override
-  void dispose() {
-    _mapController.dispose();
-    _locationController.dispose();
-    super.dispose();
-  }
-
-  // Convert km radius to meters for the circle
-  double get _radiusInMeters => _selectedProximity * 1000;
-
-  // Reverse geocode coordinates to address
-  Future<void> _reverseGeocode(LatLng location) async {
-    try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-        location.latitude,
-        location.longitude,
-      );
-
-      if (placemarks.isNotEmpty) {
-        final place = placemarks.first;
-        String address = '';
-
-        if (place.street != null && place.street!.isNotEmpty) {
-          address = place.street!;
-        }
-        if (place.subLocality != null && place.subLocality!.isNotEmpty) {
-          address = address.isEmpty
-              ? place.subLocality!
-              : '$address, ${place.subLocality}';
-        }
-        if (place.locality != null && place.locality!.isNotEmpty) {
-          address = address.isEmpty
-              ? place.locality!
-              : '$address, ${place.locality}';
-        }
-        if (place.administrativeArea != null &&
-            place.administrativeArea!.isNotEmpty) {
-          address = address.isEmpty
-              ? place.administrativeArea!
-              : '$address, ${place.administrativeArea}';
-        }
-
-        setState(() {
-          _currentAddress = address.isNotEmpty ? address : 'Selected Location';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _currentAddress = 'Selected Location';
-      });
-    }
-  }
-
-  // Forward geocode address to coordinates
-  Future<void> _geocodeAddress(String address) async {
-    if (address.trim().isEmpty) return;
-
-    setState(() => _isSearching = true);
-
-    try {
-      List<Location> locations = await locationFromAddress(address);
-
-      if (locations.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Location not found'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-        return;
-      }
-
-      final newLocation = LatLng(
-        locations.first.latitude,
-        locations.first.longitude,
-      );
-
-      setState(() {
-        _currentLatLng = newLocation;
-        _selectedLocation = address;
-      });
-
-      // Move map and reverse geocode
-      _mapController.move(newLocation, 14.0);
-      await _reverseGeocode(newLocation);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to find location: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSearching = false);
-      }
-    }
-  }
-
-  // Get current location
-  Future<void> _getCurrentLocation() async {
-    setState(() => _isGettingLocation = true);
-
-    try {
-      // Check if location services are enabled
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please enable location services'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-
-      // Check location permissions
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Location permission denied'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Location permissions are permanently denied. Please enable in settings.',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-
-      // Get current position
-      Position position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-
-      final newLocation = LatLng(position.latitude, position.longitude);
-
-      setState(() {
-        _currentLatLng = newLocation;
-        _selectedLocation = 'Current Location';
-        _locationController.text = 'Current Location';
-      });
-
-      // Move map and reverse geocode
-      _mapController.move(newLocation, 14.0);
-      await _reverseGeocode(newLocation);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to get location: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isGettingLocation = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          // Handle
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: FreshCycleTheme.borderColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-          ),
-          // Title
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Location Settings',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: FreshCycleTheme.textPrimary,
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    widget.onLocationChanged(
-                      _currentAddress.isNotEmpty
-                          ? _currentAddress
-                          : _selectedLocation,
-                    );
-                    widget.onProximityChanged(_selectedProximity);
-                    Navigator.pop(context);
-                  },
-                  child: const Text(
-                    'Apply',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: FreshCycleTheme.primary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Map section
-          Expanded(
-            child: Stack(
-              children: [
-                // Map
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: _currentLatLng,
-                    initialZoom: 12.0,
-                    onTap: (tapPosition, point) async {
-                      setState(() {
-                        _currentLatLng = point;
-                      });
-                      await _reverseGeocode(point);
-                    },
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.example.flutter_application_1',
-                    ),
-                    // Radius circle (blue overlay like Facebook Marketplace)
-                    CircleLayer(
-                      circles: [
-                        CircleMarker(
-                          point: _currentLatLng,
-                          radius: _radiusInMeters,
-                          useRadiusInMeter: true,
-                          color: FreshCycleTheme.primary.withOpacity(0.15),
-                          borderColor: FreshCycleTheme.primary,
-                          borderStrokeWidth: 2,
-                        ),
-                      ],
-                    ),
-                    // Pin marker
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: _currentLatLng,
-                          width: 40,
-                          height: 40,
-                          child: const _LocationPin(),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                // Location info overlay - now showing reverse geocoded address
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on,
-                          size: 16,
-                          color: FreshCycleTheme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _currentAddress.isNotEmpty
-                                ? _currentAddress
-                                : _selectedLocation,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: FreshCycleTheme.textPrimary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Text(
-                          '${_selectedProximity.toStringAsFixed(1)} km',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: FreshCycleTheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Use current location button
-                Positioned(
-                  bottom: 12,
-                  right: 12,
-                  child: FloatingActionButton.small(
-                    heroTag: 'currentLocation',
-                    onPressed: _isGettingLocation ? null : _getCurrentLocation,
-                    backgroundColor: Colors.white,
-                    foregroundColor: FreshCycleTheme.primary,
-                    child: _isGettingLocation
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: FreshCycleTheme.primary,
-                            ),
-                          )
-                        : const Icon(Icons.my_location),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Location selector and proximity slider
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Location text input with search
-                const Text(
-                  'Search Location',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: FreshCycleTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: FreshCycleTheme.borderColor,
-                            width: 0.5,
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: TextField(
-                          controller: _locationController,
-                          decoration: InputDecoration(
-                            hintText: 'Enter address or place name...',
-                            prefixIcon: const Icon(
-                              Icons.search,
-                              size: 20,
-                              color: FreshCycleTheme.textSecondary,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                            suffixIcon: _isSearching
-                                ? const Padding(
-                                    padding: EdgeInsets.all(12),
-                                    child: SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: FreshCycleTheme.primary,
-                                      ),
-                                    ),
-                                  )
-                                : _locationController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 18),
-                                    onPressed: () {
-                                      _locationController.clear();
-                                    },
-                                  )
-                                : null,
-                          ),
-                          onSubmitted: (value) {
-                            if (value.isNotEmpty) {
-                              _geocodeAddress(value);
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Quick select dropdown
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: FreshCycleTheme.borderColor,
-                          width: 0.5,
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value:
-                              widget.availableLocations.contains(
-                                _selectedLocation,
-                              )
-                              ? _selectedLocation
-                              : null,
-                          hint: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8),
-                            child: Text('Presets'),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          borderRadius: BorderRadius.circular(10),
-                          icon: const Icon(Icons.arrow_drop_down, size: 20),
-                          items: widget.availableLocations.map((location) {
-                            return DropdownMenuItem(
-                              value: location,
-                              child: Text(
-                                location,
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _selectedLocation = value;
-                                _locationController.text = value;
-                                _currentLatLng =
-                                    widget.locationCoordinates[value] ??
-                                    LatLng(14.6534, 121.0681);
-                                _mapController.move(_currentLatLng, 12.0);
-                              });
-                              _reverseGeocode(_currentLatLng);
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                // Continuous radius slider - 1km to 10km
-                const Text(
-                  'Search Radius',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: FreshCycleTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Show listings within ${_selectedProximity.toStringAsFixed(1)} km radius',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: FreshCycleTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Continuous slider with more granular control
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    activeTrackColor: FreshCycleTheme.primary,
-                    inactiveTrackColor: FreshCycleTheme.primary.withOpacity(
-                      0.2,
-                    ),
-                    thumbColor: FreshCycleTheme.primary,
-                    overlayColor: FreshCycleTheme.primary.withOpacity(0.1),
-                    valueIndicatorColor: FreshCycleTheme.primary,
-                    valueIndicatorTextStyle: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    // Show more tick marks for granular control
-                    showValueIndicator: ShowValueIndicator.always,
-                  ),
-                  child: Slider(
-                    value: _selectedProximity,
-                    min: 1.0, // 1km minimum
-                    max: 10.0, // 10km maximum
-                    divisions: 90, // 0.1 km increments for granular control
-                    label: '${_selectedProximity.toStringAsFixed(1)} km',
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedProximity = value;
-                      });
-                    },
-                  ),
-                ),
-                // Radius preset buttons for quick selection
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildRadiusChip(1.0),
-                    _buildRadiusChip(2.0),
-                    _buildRadiusChip(5.0),
-                    _buildRadiusChip(7.5),
-                    _buildRadiusChip(10.0),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRadiusChip(double radius) {
-    final isSelected = (_selectedProximity - radius).abs() < 0.1;
-    return GestureDetector(
-      onTap: () {
-        setState(() => _selectedProximity = radius);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? FreshCycleTheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected
-                ? FreshCycleTheme.primary
-                : FreshCycleTheme.borderColor,
-            width: 0.5,
-          ),
-        ),
-        child: Text(
-          '${radius.toInt()} km',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: isSelected ? Colors.white : FreshCycleTheme.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Custom location pin widget
-class _LocationPin extends StatelessWidget {
-  const _LocationPin();
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // Pin shadow
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-        ),
-        // Pin icon
-        Container(
-          width: 32,
-          height: 32,
-          decoration: const BoxDecoration(
-            color: FreshCycleTheme.primary,
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.location_on, color: Colors.white, size: 20),
-        ),
-        // Pin center dot
-        Container(
-          width: 8,
-          height: 8,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-          ),
-        ),
-      ],
     );
   }
 }

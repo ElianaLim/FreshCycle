@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import '../models/listing.dart';
 
 enum ExpiryType { absolute, relative }
@@ -45,12 +46,12 @@ class PantryItem {
     return '$diff days left';
   }
 
-  IconData get categoryIcon {
+  dynamic get categoryIcon {
     switch (category) {
       case 'Produce':
         return Icons.eco_outlined;
       case 'Dairy':
-        return Icons.egg_outlined;
+        return HugeIcons.strokeRoundedMilkBottle;
       case 'Bakery':
         return Icons.bakery_dining_outlined;
       case 'Meat & fish':
