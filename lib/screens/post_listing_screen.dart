@@ -135,7 +135,7 @@ class _PostListingScreenState extends State<PostListingScreen> {
                   DropdownButtonFormField<String>(
                     value: _selectedCategory,
                     decoration: const InputDecoration(labelText: 'Category*'),
-                    items: ['Produce', 'Dairy', 'Bakery', 'Meat & fish']
+                    items: ['Produce', 'Dairy', 'Bakery', 'Meat & fish', 'Meals & leftovers', 'Snacks', 'Beverages', 'Other']
                         .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                         .toList(),
                     onChanged: (v) => setState(() => _selectedCategory = v),

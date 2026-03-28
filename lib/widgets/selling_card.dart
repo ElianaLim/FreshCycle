@@ -293,6 +293,7 @@ class SellingCard extends StatelessWidget {
     );
   }
 
+
   IconData _categoryIcon(String category) {
     switch (category.toLowerCase()) {
       case 'produce':
@@ -303,6 +304,14 @@ class SellingCard extends StatelessWidget {
         return Icons.bakery_dining_outlined;
       case 'meat & fish':
         return Icons.set_meal_outlined;
+      case 'meals & leftovers':
+        return Icons.restaurant_menu_outlined;     
+      case 'snacks':
+        return Icons.fastfood_outlined;           
+      case 'beverages':
+        return Icons.local_cafe_outlined;
+      case 'other':
+        return Icons.shopping_bag_outlined;
       default:
         return Icons.shopping_bag_outlined;
     }

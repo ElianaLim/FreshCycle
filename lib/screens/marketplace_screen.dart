@@ -29,6 +29,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
     'Dairy',
     'Bakery',
     'Meat & fish',
+    'Meals & leftovers',
+    'Snacks',
+    'Beverages',
+    'Other',
   ];
 
   final List<String> _requestCategories = [
