@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 
 class RewardsScreen extends StatelessWidget {
@@ -6,6 +8,8 @@ class RewardsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final points = context.watch<AuthProvider>().user?.points ?? 0;
+
     return Scaffold(
       backgroundColor: FreshCycleTheme.surfaceGray,
       appBar: AppBar(
@@ -14,9 +18,7 @@ class RewardsScreen extends StatelessWidget {
         elevation: 0,
         title: const Text(
           'Your Rewards',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
         actions: [
           IconButton(
@@ -32,9 +34,7 @@ class RewardsScreen extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-            ),
+            decoration: const BoxDecoration(color: Colors.white),
             child: Column(
               children: [
                 Container(
@@ -67,8 +67,8 @@ class RewardsScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
-                        '150',
+                      Text(
+                        '$points',
                         style: TextStyle(
                           fontSize: 36,
                           fontWeight: FontWeight.bold,
@@ -184,10 +184,7 @@ class RewardsScreen extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Icon(
-              Icons.card_giftcard_rounded,
-              color: FreshCycleTheme.primary,
-            ),
+            Icon(Icons.card_giftcard_rounded, color: FreshCycleTheme.primary),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
@@ -224,7 +221,7 @@ class RewardsScreen extends StatelessWidget {
               ),
               _InfoItem(
                 icon: Icons.check_circle_outline,
-                text: 'Complete a pickup: +25 points',
+                text: 'Complete a pickup: +5% of sold price',
               ),
               _InfoItem(
                 icon: Icons.emoji_events_outlined,
@@ -305,10 +302,7 @@ class _InfoItem extends StatelessWidget {
   final IconData icon;
   final String text;
 
-  const _InfoItem({
-    required this.icon,
-    required this.text,
-  });
+  const _InfoItem({required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -316,11 +310,7 @@ class _InfoItem extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 18,
-            color: FreshCycleTheme.textSecondary,
-          ),
+          Icon(icon, size: 18, color: FreshCycleTheme.textSecondary),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -358,10 +348,7 @@ class _TransactionItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: const BoxDecoration(
         border: Border(
-          bottom: BorderSide(
-            color: FreshCycleTheme.surfaceGray,
-            width: 1,
-          ),
+          bottom: BorderSide(color: FreshCycleTheme.surfaceGray, width: 1),
         ),
       ),
       child: Row(

@@ -1,6 +1,7 @@
 // lib/screens/messages_screen.dart
 import 'dart:async';
 
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/messages.dart';
@@ -596,12 +597,27 @@ class ChatScreenState extends State<ChatScreen> {
     final listingId = widget.conversation.relatedListingId;
     if (listingId == null || _isMarkingComplete) return;
 
+    final listingProvider = context.read<ListingProvider>();
+    double? soldPrice;
+    try {
+      soldPrice = listingProvider.listings
+          .firstWhere((l) => l.id == listingId)
+          .price;
+    } catch (_) {
+      soldPrice = null;
+    }
+    final rewardPoints = (soldPrice != null && soldPrice > 0)
+        ? (soldPrice * 0.05).round()
+        : 0;
+
     final shouldComplete = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Mark transaction complete?'),
-        content: const Text(
-          'This will finish the transaction, remove the listing from marketplace, and award reward points.',
+        content: Text(
+          rewardPoints > 0
+              ? 'This will finish the transaction, remove the listing from marketplace, and grant +$rewardPoints reward points (5% of sale price).'
+              : 'This will finish the transaction, remove the listing from marketplace, and grant reward points.',
         ),
         actions: [
           TextButton(
@@ -619,17 +635,14 @@ class ChatScreenState extends State<ChatScreen> {
     if (shouldComplete != true || !mounted) return;
 
     setState(() => _isMarkingComplete = true);
-    final listingProvider = context.read<ListingProvider>();
     final didComplete = listingProvider.completeListingTransaction(listingId);
 
     if (didComplete) {
-      await context.read<AuthProvider>().addRewardPoints(25);
+      if (rewardPoints > 0) {
+        await context.read<AuthProvider>().addRewardPoints(rewardPoints);
+      }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Transaction completed. +25 points awarded.'),
-        ),
-      );
+      await _showRewardCelebrationDialog(rewardPoints);
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('This transaction is already completed.')),
@@ -639,6 +652,84 @@ class ChatScreenState extends State<ChatScreen> {
     if (mounted) {
       setState(() => _isMarkingComplete = false);
     }
+  }
+
+  Future<void> _showRewardCelebrationDialog(int points) async {
+    final confettiController = ConfettiController(
+      duration: const Duration(seconds: 2),
+    );
+    confettiController.play();
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ConfettiWidget(
+                  confettiController: confettiController,
+                  blastDirectionality: BlastDirectionality.explosive,
+                  shouldLoop: false,
+                  emissionFrequency: 0.04,
+                  numberOfParticles: 16,
+                  maxBlastForce: 22,
+                  minBlastForce: 8,
+                  gravity: 0.15,
+                  colors: const [
+                    FreshCycleTheme.primary,
+                    FreshCycleTheme.requestColor,
+                    Colors.amber,
+                    Colors.teal,
+                    Colors.orange,
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.emoji_events_rounded,
+                    size: 52,
+                    color: Colors.amber,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Transaction completed!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'You earned +$points reward points',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: FreshCycleTheme.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('Awesome!'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    confettiController.dispose();
   }
 
   Widget _buildListingPreviewTile() {
