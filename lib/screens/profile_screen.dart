@@ -4,6 +4,7 @@ import '../models/user.dart';
 import '../theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 import 'edit_profile_screen.dart';
+import 'my_listings_screen.dart';
 import 'saved_items_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -486,7 +487,12 @@ class _ProfileContent extends StatelessWidget {
                       icon: Icons.shopping_bag_outlined,
                       label: 'My Listings',
                       onTap: () {
-                        // TODO: Navigate to listings
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MyListingsScreen(),
+                          ),
+                        );
                       },
                     ),
                     _MenuItem(

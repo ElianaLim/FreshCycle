@@ -30,4 +30,9 @@ class ListingProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void removeListing(String id) {
+    _listings.removeWhere((l) => l.id == id);
+    notifyListeners();
+  }
 }

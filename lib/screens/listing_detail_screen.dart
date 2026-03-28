@@ -4,6 +4,7 @@ import '../models/listing.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../providers/listing_provider.dart';
+import '../providers/auth_provider.dart';
 import 'post_listing_screen.dart';
 
 class ListingDetailScreen extends StatelessWidget {
@@ -19,6 +20,8 @@ class ListingDetailScreen extends StatelessWidget {
       (l) => l.id == listing.id,
       orElse: () => listing,
     );
+    final currentUserId = context.watch<AuthProvider>().user?.id;
+    final isOwnListing = currentUserId != null && currentListing.seller.id == currentUserId;
 
     final discountPct = currentListing.discountPercent.round();
 
@@ -55,20 +58,20 @@ class ListingDetailScreen extends StatelessWidget {
                   ),
                   child: IconButton(
                     icon: Icon(
-                      listing.seller.id == 'user_001'
+                      isOwnListing
                           ? Icons.edit_rounded
                           : currentListing.isSaved
                             ? Icons.bookmark_rounded
                             : Icons.bookmark_border_rounded,
                       size: 20,
                     ),
-                    color: listing.seller.id == 'user_001'
+                    color: isOwnListing
                         ? FreshCycleTheme.primary
                         : currentListing.isSaved
                             ? FreshCycleTheme.primary
                             : FreshCycleTheme.textPrimary,
                     onPressed: () {
-                      if (listing.seller.id == 'user_001') {
+                      if (isOwnListing) {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -278,7 +281,7 @@ class ListingDetailScreen extends StatelessWidget {
       ),
 
       // Sticky Bottom Bar for messaging
-      bottomNavigationBar: listing.seller.id != 'user_001'
+      bottomNavigationBar: !isOwnListing
         ? Container(
           padding: EdgeInsets.only(
             left: 20,
