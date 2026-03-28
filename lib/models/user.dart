@@ -1,3 +1,5 @@
+import 'listing.dart';
+
 class User {
   final String id;
   final String name;
@@ -14,6 +16,18 @@ class User {
     this.profilePictureUrl,
     required this.number,
   });
+  
+  SellerProfile toSellerProfile() {
+    return SellerProfile(
+      id: id,
+      name: name,
+      initials: initials,
+      rating: 5.0,
+      totalReviews: 0,
+      isVerified: false,
+      barangay: 'Unknown',
+    );
+  }
 
   factory User.fromMap(Map<String, dynamic> map) {
     return User(

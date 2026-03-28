@@ -10,6 +10,7 @@ final List<Listing> sampleListings = [
     category: 'Produce',
     price: 15,
     originalPrice: 40,
+    images: ['https://2.bp.blogspot.com/-8ANmgGxNKAg/WgOuFz87I0I/AAAAAAAAK04/ZxYQzmxREUA06UYbNfqcmSqf0b5JPpTDwCLcBGAs/s1600/7543029_f1024.jpg'], // Added Image
     expiryDate: DateTime.now().add(const Duration(days: 1)),
     postedAt: DateTime.now().subtract(const Duration(minutes: 20)),
     distanceKm: 0.3,
@@ -33,6 +34,7 @@ final List<Listing> sampleListings = [
     category: 'Dairy',
     price: 80,
     originalPrice: 180,
+    images: ['https://images.eatthismuch.com/img/136631_garrygilligan_2a94ea25-cbed-4f78-a20d-eb2be8826060.png'], // Added Image
     expiryDate: DateTime.now().add(const Duration(days: 2)),
     postedAt: DateTime.now().subtract(const Duration(hours: 1)),
     distanceKm: 0.7,
@@ -56,6 +58,7 @@ final List<Listing> sampleListings = [
     category: 'Bakery',
     price: 60,
     originalPrice: 120,
+    images: [], // Added Image
     expiryDate: DateTime.now().add(const Duration(days: 3)),
     postedAt: DateTime.now().subtract(const Duration(hours: 3)),
     distanceKm: 1.1,
@@ -79,6 +82,7 @@ final List<Listing> sampleListings = [
     category: 'Meat & fish',
     price: 120,
     originalPrice: 220,
+    images: [], 
     expiryDate: DateTime.now().add(const Duration(days: 5)),
     postedAt: DateTime.now().subtract(const Duration(hours: 5)),
     distanceKm: 0.5,

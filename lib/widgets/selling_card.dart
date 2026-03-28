@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/listing.dart';
 import '../theme/app_theme.dart';
 import 'common_widgets.dart';
+import 'package:provider/provider.dart';
+import '../providers/listing_provider.dart';
 
 class SellingCard extends StatelessWidget {
   final Listing listing;
@@ -25,31 +27,30 @@ class SellingCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: FreshCycleTheme.borderColor,
-            width: 0.5,
-          ),
+          border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image placeholder with urgency overlay
+            // Image with urgency overlay
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(14),
+              ),
               child: Stack(
                 children: [
-                  Container(
-                    height: 120, // Reduced from 140 to free up vertical space
-                    width: double.infinity,
-                    color: FreshCycleTheme.surfaceGray,
-                    child: Center(
-                      child: Icon(
-                        _categoryIcon(listing.category),
-                        size: 48,
-                        color: FreshCycleTheme.borderColor,
-                      ),
-                    ),
-                  ),
+                  // Show actual image if available, else show category icon
+                  if (listing.images != null && listing.images!.isNotEmpty)
+                    Image.network(
+                      listing.images!.first,
+                      height: 120,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (ctx, err, stack) => _buildPlaceholder(),
+                    )
+                  else
+                    _buildPlaceholder(),
+
                   // Urgency badge top-left
                   Positioned(
                     top: 10,
@@ -83,25 +84,35 @@ class SellingCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                  // Bookmark button
+                  // Save button
+                  // Save button
                   Positioned(
                     bottom: 8,
                     right: 10,
-                    child: Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: FreshCycleTheme.borderColor,
-                          width: 0.5,
+                    child: GestureDetector(
+                      onTap: () {
+                        context.read<ListingProvider>().toggleSave(listing.id);
+                      },
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: FreshCycleTheme.borderColor,
+                            width: 0.5,
+                          ),
                         ),
-                      ),
-                      child: const Icon(
-                        Icons.bookmark_border_rounded,
-                        size: 16,
-                        color: FreshCycleTheme.textSecondary,
+                        child: Icon(
+                          listing.isSaved
+                              ? Icons.bookmark
+                              : Icons.bookmark_border_rounded,
+                          size: 16,
+                          color: listing.isSaved
+                              ? FreshCycleTheme.primary
+                              : FreshCycleTheme.textSecondary,
+                        ),
                       ),
                     ),
                   ),
@@ -113,16 +124,17 @@ class SellingCard extends StatelessWidget {
             UrgencyBar(urgency: listing.urgency),
 
             // Content
-            // 1. Used Expanded to dynamically restrict the column to bounded height 
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(10), // Adjusted from 12
+                padding: const EdgeInsets.all(10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Category chip
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: FreshCycleTheme.surfaceGray,
                         borderRadius: BorderRadius.circular(4),
@@ -139,7 +151,6 @@ class SellingCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
 
-                    // Title
                     Text(
                       listing.title,
                       style: const TextStyle(
@@ -153,23 +164,20 @@ class SellingCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
 
-                    // Description
-                    // 2. Used Expanded so the description absorbs/shrinks depending on the remaining real-estate
-                    Expanded(
-                      child: Text(
-                        listing.description,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: FreshCycleTheme.textSecondary,
-                          height: 1.4,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                    // Removed the buggy 'Expanded' from here
+                    Text(
+                      listing.description,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: FreshCycleTheme.textSecondary,
+                        height: 1.4,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 8),
 
-                    // Price row
+                    const Spacer(), // Pushes the price and seller row neatly to the bottom
+
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.baseline,
                       textBaseline: TextBaseline.alphabetic,
@@ -197,11 +205,12 @@ class SellingCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
 
-                    // Divider
-                    const Divider(height: 1, color: FreshCycleTheme.borderColor),
+                    const Divider(
+                      height: 1,
+                      color: FreshCycleTheme.borderColor,
+                    ),
                     const SizedBox(height: 8),
 
-                    // Seller row
                     Row(
                       children: [
                         SellerAvatar(seller: listing.seller, size: 16),
@@ -217,7 +226,7 @@ class SellingCard extends StatelessWidget {
                                   fontWeight: FontWeight.w600,
                                   color: FreshCycleTheme.textPrimary,
                                 ),
-                                maxLines: 1, // Added a limit so super-long names gracefully format
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               StarRating(
@@ -232,13 +241,15 @@ class SellingCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
 
-                    // Message button
                     SizedBox(
                       width: double.infinity,
-                      height: 32, // Forced height to prevent minimum default dimensions from contributing to layout overflow
+                      height: 32,
                       child: OutlinedButton.icon(
                         onPressed: onMessage,
-                        icon: const Icon(Icons.chat_bubble_outline_rounded, size: 15),
+                        icon: const Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          size: 15,
+                        ),
                         label: const Text('Message seller'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: FreshCycleTheme.primary,
@@ -249,7 +260,7 @@ class SellingCard extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 8), // Replaced padding to not interfere with explicit sizing
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                           textStyle: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -262,6 +273,21 @@ class SellingCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      height: 120,
+      width: double.infinity,
+      color: FreshCycleTheme.surfaceGray,
+      child: Center(
+        child: Icon(
+          _categoryIcon(listing.category),
+          size: 48,
+          color: FreshCycleTheme.borderColor,
         ),
       ),
     );

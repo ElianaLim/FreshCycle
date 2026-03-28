@@ -4,6 +4,7 @@ import '../models/user.dart';
 import '../theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 import 'edit_profile_screen.dart';
+import 'saved_items_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -404,9 +405,15 @@ class _ProfileContent extends StatelessWidget {
                       icon: Icons.favorite_outline_rounded,
                       label: 'Saved Items',
                       onTap: () {
-                        // TODO: Navigate to saved items
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SavedItemsScreen(),
+                          ),
+                        );
                       },
                     ),
+                    
                     _MenuItem(
                       icon: Icons.settings_outlined,
                       label: 'Settings',
