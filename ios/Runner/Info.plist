@@ -28,9 +28,9 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is needed to scan barcodes when adding pantry items.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>FreshCycle needs your location to show nearby listings and help you find food near you.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>FreshCycle needs your location to show nearby listings and help you find food near you.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>FreshCycle needs your location to show nearby listings and help you find food near you.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>

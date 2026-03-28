@@ -136,12 +136,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'You\'ll see updates about your listings\nand messages here',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: FreshCycleTheme.textHint,
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      'You\'ll see updates about your listings, messages, and pantry expiry reminders here.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: FreshCycleTheme.textHint,
+                      ),
                     ),
                   ),
                 ],
