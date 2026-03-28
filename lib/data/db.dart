@@ -362,6 +362,189 @@ class DB {
       print('Mark messages as read error: $e');
     }
   }
+
+  // ── Notifications ─────────────────────────────────────────────────
+
+  /// Get all notifications for a user
+  static Future<List<Map<String, dynamic>>> getNotifications(String userId) async {
+    try {
+      final response = await _client!
+          .from('notifications')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      print('Get notifications error: $e');
+      return [];
+    }
+  }
+
+  /// Get unread notification count
+  static Future<int> getUnreadNotificationCount(String userId) async {
+    try {
+      final response = await _client!
+          .from('notifications')
+          .select()
+          .eq('user_id', userId)
+          .eq('is_read', false);
+      final list = response as List;
+      return list.length;
+    } catch (e) {
+      print('Get unread notification count error: $e');
+      return 0;
+    }
+  }
+
+  /// Create a new notification
+  static Future<Map<String, dynamic>?> createNotification({
+    required String userId,
+    required String type,
+    required String title,
+    required String body,
+    String? relatedId,
+  }) async {
+    try {
+      final notificationId = uuid.v4();
+      final now = DateTime.now().toIso8601String();
+
+      await _client!.from('notifications').insert({
+        'id': notificationId,
+        'user_id': userId,
+        'type': type,
+        'title': title,
+        'body': body,
+        'related_id': relatedId,
+        'is_read': false,
+        'created_at': now,
+      });
+
+      return {
+        'id': notificationId,
+        'user_id': userId,
+        'type': type,
+        'title': title,
+        'body': body,
+        'related_id': relatedId,
+        'is_read': false,
+        'created_at': now,
+      };
+    } catch (e) {
+      print('Create notification error: $e');
+      return null;
+    }
+  }
+
+  /// Mark a notification as read
+  static Future<void> markNotificationAsRead(String notificationId) async {
+    try {
+      await _client!.from('notifications').update({
+        'is_read': true,
+      }).eq('id', notificationId);
+    } catch (e) {
+      print('Mark notification as read error: $e');
+    }
+  }
+
+  /// Mark all notifications as read for a user
+  static Future<void> markAllNotificationsAsRead(String userId) async {
+    try {
+      await _client!.from('notifications').update({
+        'is_read': true,
+      }).eq('user_id', userId).eq('is_read', false);
+    } catch (e) {
+      print('Mark all notifications as read error: $e');
+    }
+  }
+
+  /// Delete a notification
+  static Future<void> deleteNotification(String notificationId) async {
+    try {
+      await _client!.from('notifications').delete().eq('id', notificationId);
+    } catch (e) {
+      print('Delete notification error: $e');
+    }
+  }
+
+  /// Create notification for new message in conversation
+  static Future<void> notifyNewMessage({
+    required String recipientId,
+    required String senderName,
+    required String conversationId,
+    String? listingTitle,
+  }) async {
+    final listingContext = listingTitle != null ? ' about "$listingTitle"' : '';
+    await createNotification(
+      userId: recipientId,
+      type: 'newMessage',
+      title: 'New message',
+      body: '$senderName sent you a message$listingContext',
+      relatedId: conversationId,
+    );
+  }
+
+  /// Create notification when someone saves a listing
+  static Future<void> notifyListingSaved({
+    required String sellerId,
+    required String saverName,
+    required String listingId,
+    required String listingTitle,
+  }) async {
+    await createNotification(
+      userId: sellerId,
+      type: 'listingSaved',
+      title: 'Listing saved',
+      body: '$saverName saved your listing "$listingTitle"',
+      relatedId: listingId,
+    );
+  }
+
+  /// Create notification when someone makes an offer
+  static Future<void> notifyOfferReceived({
+    required String sellerId,
+    required String offererName,
+    required String listingId,
+    required String listingTitle,
+    required double offerAmount,
+  }) async {
+    await createNotification(
+      userId: sellerId,
+      type: 'offerReceived',
+      title: 'New offer',
+      body: '$offererName offered ₱${offerAmount.toStringAsFixed(0)} for "$listingTitle"',
+      relatedId: listingId,
+    );
+  }
+
+  /// Create notification when offer is accepted
+  static Future<void> notifyOfferAccepted({
+    required String offererId,
+    required String listingTitle,
+    required String listingId,
+  }) async {
+    await createNotification(
+      userId: offererId,
+      type: 'offerAccepted',
+      title: 'Offer accepted!',
+      body: 'Your offer for "$listingTitle" was accepted',
+      relatedId: listingId,
+    );
+  }
+
+  /// Create notification when offer is rejected
+  static Future<void> notifyOfferRejected({
+    required String offererId,
+    required String listingTitle,
+    required String listingId,
+  }) async {
+    await createNotification(
+      userId: offererId,
+      type: 'offerRejected',
+      title: 'Offer declined',
+      body: 'Your offer for "$listingTitle" was declined',
+      relatedId: listingId,
+    );
+  }
 }
 
 // UUID generator
