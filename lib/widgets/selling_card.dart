@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import 'common_widgets.dart';
 import 'package:provider/provider.dart';
 import '../providers/listing_provider.dart';
+import '../providers/auth_provider.dart';
 import '../screens/post_listing_screen.dart';
 
 class SellingCard extends StatelessWidget {
@@ -20,6 +21,9 @@ class SellingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentUserId = context.watch<AuthProvider>().user?.id;
+    final isOwnListing =
+        currentUserId != null && listing.seller.id == currentUserId;
     final discountPct = listing.discountPercent.round();
 
     return GestureDetector(
@@ -93,15 +97,18 @@ class SellingCard extends StatelessWidget {
                     child: GestureDetector(
                       onTap: () {
                         // Check if the current user is the seller
-                        if (listing.seller.id == 'user_001') {
+                        if (isOwnListing) {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => PostListingScreen(existingListing: listing),
+                              builder: (_) =>
+                                  PostListingScreen(existingListing: listing),
                             ),
                           );
                         } else {
-                          context.read<ListingProvider>().toggleSave(listing.id);
+                          context.read<ListingProvider>().toggleSave(
+                            listing.id,
+                          );
                         }
                       },
                       child: Container(
@@ -110,14 +117,20 @@ class SellingCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
-                          border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
+                          border: Border.all(
+                            color: FreshCycleTheme.borderColor,
+                            width: 0.5,
+                          ),
                         ),
                         child: Icon(
-                          listing.seller.id == 'user_001'
-                              ? Icons.edit_rounded // Show edit if it's yours
-                              : (listing.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded),
+                          isOwnListing
+                              ? Icons
+                                    .edit_rounded // Show edit if it's yours
+                              : (listing.isSaved
+                                    ? Icons.bookmark_rounded
+                                    : Icons.bookmark_border_rounded),
                           size: 16,
-                          color: (listing.isSaved && listing.seller.id != 'user_001')
+                          color: (listing.isSaved && !isOwnListing)
                               ? FreshCycleTheme.primary
                               : FreshCycleTheme.textSecondary,
                         ),
@@ -249,33 +262,34 @@ class SellingCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
 
-                    SizedBox(
-                      width: double.infinity,
-                      height: 32,
-                      child: OutlinedButton.icon(
-                        onPressed: onMessage,
-                        icon: const Icon(
-                          Icons.chat_bubble_outline_rounded,
-                          size: 15,
-                        ),
-                        label: const Text('Message seller'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: FreshCycleTheme.primary,
-                          side: const BorderSide(
-                            color: FreshCycleTheme.primary,
-                            width: 0.5,
+                    if (!isOwnListing)
+                      SizedBox(
+                        width: double.infinity,
+                        height: 32,
+                        child: OutlinedButton.icon(
+                          onPressed: onMessage,
+                          icon: const Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            size: 15,
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          textStyle: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                          label: const Text('Message seller'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: FreshCycleTheme.primary,
+                            side: const BorderSide(
+                              color: FreshCycleTheme.primary,
+                              width: 0.5,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            textStyle: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -301,7 +315,6 @@ class SellingCard extends StatelessWidget {
     );
   }
 
-
   IconData _categoryIcon(String category) {
     switch (category.toLowerCase()) {
       case 'produce':
@@ -313,9 +326,9 @@ class SellingCard extends StatelessWidget {
       case 'meat & fish':
         return Icons.set_meal_outlined;
       case 'meals & leftovers':
-        return Icons.restaurant_menu_outlined;     
+        return Icons.restaurant_menu_outlined;
       case 'snacks':
-        return Icons.fastfood_outlined;           
+        return Icons.fastfood_outlined;
       case 'beverages':
         return Icons.local_cafe_outlined;
       case 'other':

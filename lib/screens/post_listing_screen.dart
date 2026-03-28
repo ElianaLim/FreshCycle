@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'dart:io';
 import '../theme/app_theme.dart';
 import '../providers/listing_provider.dart'; 
+import '../providers/auth_provider.dart';
 import '../models/user.dart';
 import '../models/listing.dart';
 
@@ -71,6 +72,7 @@ class _PostListingScreenState extends State<PostListingScreen> {
         actions: [
           TextButton(
             onPressed: () {
+              final authUser = context.read<AuthProvider>().user;
               final newListing = Listing(
                 id: isEditing ? widget.existingListing!.id : DateTime.now().toString(),
                 type: ListingType.selling,
@@ -87,7 +89,9 @@ class _PostListingScreenState extends State<PostListingScreen> {
                 isFree: _isFree,
                 allowDelivery: _allowDelivery,
                 dealLocation: _locationController.text,
-                seller: isEditing ? widget.existingListing!.seller : User.sampleUser.toSellerProfile(),
+                seller: isEditing
+                    ? widget.existingListing!.seller
+                    : (authUser ?? User.sampleUser).toSellerProfile(),
                 tags: isEditing ? widget.existingListing!.tags : [],
                 isSaved: isEditing ? widget.existingListing!.isSaved : false,
               );
