@@ -23,6 +23,23 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
   String _selectedCategory = 'All';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  
+  // Location and proximity settings
+  String _currentLocation = 'Diliman, Quezon City';
+  double _proximityRadius = 5.0;
+  
+  final List<String> _availableLocations = [
+    'Diliman, Quezon City',
+    'Makati City',
+    'Manila City',
+    'Caloocan City',
+    'Pasay City',
+    'Taguig City',
+    'Cebu City',
+    'Davao City',
+  ];
+
+  final List<double> _proximityOptions = [1.0, 2.0, 5.0, 10.0, 20.0, 50.0];
 
   final List<String> _sellingCategories = [
     'All',
@@ -133,6 +150,29 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
     );
   }
 
+  void _showLocationSettingsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _LocationSettingsSheet(
+        currentLocation: _currentLocation,
+        proximityRadius: _proximityRadius,
+        availableLocations: _availableLocations,
+        proximityOptions: _proximityOptions,
+        onLocationChanged: (location) {
+          setState(() => _currentLocation = location);
+        },
+        onProximityChanged: (proximity) {
+          setState(() => _proximityRadius = proximity);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -161,18 +201,24 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    const Icon(
-                      Icons.location_on_rounded,
-                      size: 12,
-                      color: FreshCycleTheme.primary,
+                    GestureDetector(
+                      onTap: () => _showLocationSettingsSheet(context),
+                      child: const Icon(
+                        Icons.location_on_rounded,
+                        size: 12,
+                        color: FreshCycleTheme.primary,
+                      ),
                     ),
                     const SizedBox(width: 2),
-                    const Text(
-                      'Diliman, Quezon City',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: FreshCycleTheme.textSecondary,
-                        fontWeight: FontWeight.w400,
+                    GestureDetector(
+                      onTap: () => _showLocationSettingsSheet(context),
+                      child: Text(
+                        _currentLocation,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: FreshCycleTheme.textSecondary,
+                          fontWeight: FontWeight.w400,
+                        ),
                       ),
                     ),
                   ],
@@ -793,6 +839,211 @@ class _OfferSheet extends StatelessWidget {
                 ),
                 child: const Text(
                   'Send offer',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LocationSettingsSheet extends StatefulWidget {
+  final String currentLocation;
+  final double proximityRadius;
+  final List<String> availableLocations;
+  final List<double> proximityOptions;
+  final ValueChanged<String> onLocationChanged;
+  final ValueChanged<double> onProximityChanged;
+
+  const _LocationSettingsSheet({
+    required this.currentLocation,
+    required this.proximityRadius,
+    required this.availableLocations,
+    required this.proximityOptions,
+    required this.onLocationChanged,
+    required this.onProximityChanged,
+  });
+
+  @override
+  State<_LocationSettingsSheet> createState() => _LocationSettingsSheetState();
+}
+
+class _LocationSettingsSheetState extends State<_LocationSettingsSheet> {
+  late String _selectedLocation;
+  late double _selectedProximity;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedLocation = widget.currentLocation;
+    _selectedProximity = widget.proximityRadius;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: FreshCycleTheme.borderColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Location Settings',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: FreshCycleTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Location section
+            const Text(
+              'Current Location',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: FreshCycleTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: widget.availableLocations.map((location) {
+                  final isSelected = location == _selectedLocation;
+                  return InkWell(
+                    onTap: () {
+                      setState(() => _selectedLocation = location);
+                      widget.onLocationChanged(location);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: isSelected ? FreshCycleTheme.primaryLight : Colors.transparent,
+                        border: Border(
+                          bottom: location != widget.availableLocations.last
+                              ? BorderSide(color: FreshCycleTheme.borderColor, width: 0.5)
+                              : BorderSide.none,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isSelected
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_off,
+                            size: 20,
+                            color: isSelected
+                                ? FreshCycleTheme.primary
+                                : FreshCycleTheme.textSecondary,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            location,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: FreshCycleTheme.textPrimary,
+                              fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Proximity section
+            const Text(
+              'Area Proximity',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: FreshCycleTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Show listings within this radius',
+              style: const TextStyle(
+                fontSize: 12,
+                color: FreshCycleTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: widget.proximityOptions.map((proximity) {
+                final isSelected = proximity == _selectedProximity;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() => _selectedProximity = proximity);
+                    widget.onProximityChanged(proximity);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isSelected ? FreshCycleTheme.primary : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected ? FreshCycleTheme.primary : FreshCycleTheme.borderColor,
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Text(
+                      '${proximity.toInt()} km',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: isSelected ? Colors.white : FreshCycleTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(context),
+                style: FilledButton.styleFrom(
+                  backgroundColor: FreshCycleTheme.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Text(
+                  'Apply',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
