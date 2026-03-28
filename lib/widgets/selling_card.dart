@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'dart:io';
 import '../models/listing.dart';
 import '../theme/app_theme.dart';
 import 'common_widgets.dart';
@@ -49,13 +50,7 @@ class SellingCard extends StatelessWidget {
                 children: [
                   // Show actual image if available, else show category icon
                   if (listing.images != null && listing.images!.isNotEmpty)
-                    Image.network(
-                      listing.images!.first,
-                      height: 120,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (ctx, err, stack) => _buildPlaceholder(),
-                    )
+                    _buildCardImage(listing.images!.first)
                   else
                     _buildPlaceholder(),
 
@@ -97,47 +92,53 @@ class SellingCard extends StatelessWidget {
                   Positioned(
                     bottom: 8,
                     right: 10,
-                    child: GestureDetector(
-                      onTap: () {
-                        // Check if the current user is the seller
-                        if (isOwnListing) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  PostListingScreen(existingListing: listing),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            // Check if the current user is the seller
+                            if (isOwnListing) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PostListingScreen(
+                                    existingListing: listing,
+                                  ),
+                                ),
+                              );
+                            } else {
+                              context.read<ListingProvider>().toggleSave(
+                                listing.id,
+                              );
+                            }
+                          },
+                          child: Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: FreshCycleTheme.borderColor,
+                                width: 0.5,
+                              ),
                             ),
-                          );
-                        } else {
-                          context.read<ListingProvider>().toggleSave(
-                            listing.id,
-                          );
-                        }
-                      },
-                      child: Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: FreshCycleTheme.borderColor,
-                            width: 0.5,
+                            child: Icon(
+                              isOwnListing
+                                  ? Icons
+                                        .edit_rounded // Show edit if it's yours
+                                  : (listing.isSaved
+                                        ? Icons.bookmark_rounded
+                                        : Icons.bookmark_border_rounded),
+                              size: 16,
+                              color: (listing.isSaved && !isOwnListing)
+                                  ? FreshCycleTheme.primary
+                                  : FreshCycleTheme.textSecondary,
+                            ),
                           ),
                         ),
-                        child: Icon(
-                          isOwnListing
-                              ? Icons
-                                    .edit_rounded // Show edit if it's yours
-                              : (listing.isSaved
-                                    ? Icons.bookmark_rounded
-                                    : Icons.bookmark_border_rounded),
-                          size: 16,
-                          color: (listing.isSaved && !isOwnListing)
-                              ? FreshCycleTheme.primary
-                              : FreshCycleTheme.textSecondary,
-                        ),
-                      ),
+                      ],
                     ),
                   ),
                 ],
@@ -154,25 +155,58 @@ class SellingCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: FreshCycleTheme.surfaceGray,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        listing.category.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                          color: FreshCycleTheme.textSecondary,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: FreshCycleTheme.surfaceGray,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                listing.category.toUpperCase(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                  color: FreshCycleTheme.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: FreshCycleTheme.primaryLight,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            listing.isFree
+                                ? 'FREE'
+                                : '₱${(listing.price ?? 0).toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: FreshCycleTheme.primaryDark,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+
                     const SizedBox(height: 6),
 
                     Text(
@@ -196,8 +230,77 @@ class SellingCard extends StatelessWidget {
                         color: FreshCycleTheme.textSecondary,
                         height: 1.4,
                       ),
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                    ),
+                    const Spacer(),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: FreshCycleTheme.borderColor,
+                              width: 0.5,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.location_on_rounded,
+                                size: 13,
+                                color: FreshCycleTheme.textSecondary,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                '${listing.distanceKm.toStringAsFixed(1)} km',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: FreshCycleTheme.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: FreshCycleTheme.surfaceGray,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.person_pin_circle_rounded,
+                                size: 13,
+                                color: FreshCycleTheme.textSecondary,
+                              ),
+                              if (listing.allowDelivery) ...[
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.delivery_dining_rounded,
+                                  size: 13,
+                                  color: FreshCycleTheme.textSecondary,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -207,6 +310,29 @@ class SellingCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildCardImage(String path) {
+    if (_isLocalImagePath(path)) {
+      return Image.file(
+        File(path),
+        height: 120,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (ctx, err, stack) => _buildPlaceholder(),
+      );
+    }
+    return Image.network(
+      path,
+      height: 120,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (ctx, err, stack) => _buildPlaceholder(),
+    );
+  }
+
+  bool _isLocalImagePath(String path) {
+    return path.startsWith('/') || path.startsWith('file://');
   }
 
   Widget _buildPlaceholder() {

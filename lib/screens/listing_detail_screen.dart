@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'dart:io';
 import '../models/listing.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -19,6 +20,39 @@ class ListingDetailScreen extends StatelessWidget {
     this.onBuy,
     this.onMessage,
   });
+
+  Future<void> _confirmDeleteListing(
+    BuildContext context,
+    Listing currentListing,
+  ) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Delete listing?'),
+          content: Text(
+            'This will permanently remove "${currentListing.title}" from your listings.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete == true && context.mounted) {
+      context.read<ListingProvider>().removeListing(currentListing.id);
+      Navigator.pop(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -282,9 +316,83 @@ class ListingDetailScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ],
-                  const SizedBox(height: 24),
+                  ],                  
 
+                  if (!isRequest) ...[
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Listing Details',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: FreshCycleTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: FreshCycleTheme.surfaceGray,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            currentListing.allowDelivery
+                                ? 'Delivery available'
+                                : 'Pickup only',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: FreshCycleTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                        if (currentListing.dealLocation != null &&
+                            currentListing.dealLocation!.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: FreshCycleTheme.surfaceGray,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Meetup: ${currentListing.dealLocation!}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: FreshCycleTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                        if (currentListing.expiryDate != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: FreshCycleTheme.surfaceGray,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Expiry: ${currentListing.expiryDate!.toLocal().toString().split(' ').first}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: FreshCycleTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 20),
                   // User section below description
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -338,6 +446,51 @@ class ListingDetailScreen extends StatelessWidget {
                       ],
                     ),
                   ),
+
+                  if (isOwnListing && !isRequest) ...[
+                    const SizedBox(height: 20),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF5F5),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFFD5D5)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Delete Listing',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.red,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Remove this listing permanently from the marketplace.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: FreshCycleTheme.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                            onPressed: () =>
+                                _confirmDeleteListing(context, currentListing),
+                            icon: const Icon(Icons.delete_outline_rounded),
+                            label: const Text('Delete listing'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              side: const BorderSide(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   // Bottom spacing so content doesn't get hidden behind the floating bottom bar
                   const SizedBox(height: 100),
@@ -429,14 +582,28 @@ class ListingDetailScreen extends StatelessWidget {
 
   Widget _buildImage(Listing listing) {
     if (listing.images != null && listing.images!.isNotEmpty) {
+      final imagePath = listing.images!.first;
+      if (_isLocalImagePath(imagePath)) {
+        return Image.file(
+          File(imagePath),
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (ctx, err, stack) =>
+              _buildPlaceholder(listing.category),
+        );
+      }
       return Image.network(
-        listing.images!.first,
+        imagePath,
         width: double.infinity,
         fit: BoxFit.cover,
         errorBuilder: (ctx, err, stack) => _buildPlaceholder(listing.category),
       );
     }
     return _buildPlaceholder(listing.category);
+  }
+
+  bool _isLocalImagePath(String path) {
+    return path.startsWith('/') || path.startsWith('file://');
   }
 
   Widget _buildPlaceholder(String category) {

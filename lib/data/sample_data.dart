@@ -6,17 +6,23 @@ final List<Listing> sampleListings = [
     id: '1',
     type: ListingType.selling,
     title: 'Kangkong (water spinach)',
-    description: '~800g bundle, freshly harvested this morning. Perfect for sautéing or soup.',
+    description:
+        '~800g bundle, freshly harvested this morning. Perfect for sautéing or soup.',
     category: 'Produce',
     price: 15,
     originalPrice: 40,
-    images: ['https://2.bp.blogspot.com/-8ANmgGxNKAg/WgOuFz87I0I/AAAAAAAAK04/ZxYQzmxREUA06UYbNfqcmSqf0b5JPpTDwCLcBGAs/s1600/7543029_f1024.jpg'], // Added Image
+    images: [
+      'https://2.bp.blogspot.com/-8ANmgGxNKAg/WgOuFz87I0I/AAAAAAAAK04/ZxYQzmxREUA06UYbNfqcmSqf0b5JPpTDwCLcBGAs/s1600/7543029_f1024.jpg',
+    ], // Added Image
     expiryDate: DateTime.now().add(const Duration(days: 1)),
     postedAt: DateTime.now().subtract(const Duration(minutes: 20)),
     distanceKm: 0.3,
     urgency: UrgencyLevel.critical,
+    isFree: false,
+    allowDelivery: true,
+    dealLocation: 'Krus na Ligas waiting shed',
     seller: const SellerProfile(
-      id: 'd29621f3-3d4c-4376-b1d3-1920ff706f12',
+      id: 'a2091c43-22cd-4fcc-a38a-74dce0c2e1df',
       name: 'Maria R.',
       initials: 'MR',
       rating: 4.9,
@@ -34,11 +40,16 @@ final List<Listing> sampleListings = [
     category: 'Dairy',
     price: 80,
     originalPrice: 180,
-    images: ['https://images.eatthismuch.com/img/136631_garrygilligan_2a94ea25-cbed-4f78-a20d-eb2be8826060.png'], // Added Image
+    images: [
+      'https://images.eatthismuch.com/img/136631_garrygilligan_2a94ea25-cbed-4f78-a20d-eb2be8826060.png',
+    ], // Added Image
     expiryDate: DateTime.now().add(const Duration(days: 2)),
     postedAt: DateTime.now().subtract(const Duration(hours: 1)),
     distanceKm: 0.7,
     urgency: UrgencyLevel.soon,
+    isFree: false,
+    allowDelivery: false,
+    dealLocation: 'UP Campus gate',
     seller: const SellerProfile(
       id: 's2',
       name: 'Jose L.',
@@ -54,7 +65,8 @@ final List<Listing> sampleListings = [
     id: '3',
     type: ListingType.selling,
     title: 'Sourdough loaf',
-    description: 'Whole loaf, baked yesterday. Artisan bakery — still very fresh.',
+    description:
+        'Whole loaf, baked yesterday. Artisan bakery — still very fresh.',
     category: 'Bakery',
     price: 60,
     originalPrice: 120,
@@ -63,6 +75,9 @@ final List<Listing> sampleListings = [
     postedAt: DateTime.now().subtract(const Duration(hours: 3)),
     distanceKm: 1.1,
     urgency: UrgencyLevel.safe,
+    isFree: false,
+    allowDelivery: true,
+    dealLocation: 'Sikatuna Village basketball court',
     seller: const SellerProfile(
       id: 's3',
       name: 'Ana C.',
@@ -78,15 +93,19 @@ final List<Listing> sampleListings = [
     id: '4',
     type: ListingType.selling,
     title: 'Bangus fillets (frozen)',
-    description: '4 pieces, individually vacuum-sealed. From Dagupan. Best before next week.',
+    description:
+        '4 pieces, individually vacuum-sealed. From Dagupan. Best before next week.',
     category: 'Meat & Fish',
     price: 120,
     originalPrice: 220,
-    images: [], 
+    images: [],
     expiryDate: DateTime.now().add(const Duration(days: 5)),
     postedAt: DateTime.now().subtract(const Duration(hours: 5)),
     distanceKm: 0.5,
     urgency: UrgencyLevel.safe,
+    isFree: false,
+    allowDelivery: false,
+    dealLocation: 'Krus na Ligas market side',
     seller: const SellerProfile(
       id: 's4',
       name: 'Ronnie D.',
@@ -112,7 +131,8 @@ final List<Listing> sampleRequests = [
     distanceKm: 0.4,
     urgency: UrgencyLevel.safe,
     offerCount: 3,
-    note: 'Need this by afternoon for homemade pasta sauce. Near-expiry is okay.',
+    note:
+        'Need this by afternoon for homemade pasta sauce. Near-expiry is okay.',
     dealLocation: 'Pickup',
     seller: const SellerProfile(
       id: 'r_s1',
@@ -179,7 +199,7 @@ final List<Conversation> sampleConversations = [
   // --- Listing context ---
   Conversation(
     id: 'c1',
-    participantId: 'd29621f3-3d4c-4376-b1d3-1920ff706f12',
+    participantId: 'a2091c43-22cd-4fcc-a38a-74dce0c2e1df',
     participantName: 'Maria R.',
     participantInitials: 'MR',
     participantIsVerified: true,
@@ -192,7 +212,8 @@ final List<Conversation> sampleConversations = [
       ChatMessage(
         id: 'm1',
         senderId: 's1',
-        text: 'Hi! Yes it\'s still available. You can pick up anytime before 6pm.',
+        text:
+            'Hi! Yes it\'s still available. You can pick up anytime before 6pm.',
         sentAt: DateTime.now().subtract(const Duration(minutes: 18)),
         status: MessageStatus.read,
       ),
@@ -256,7 +277,8 @@ final List<Conversation> sampleConversations = [
       ChatMessage(
         id: 'm6',
         senderId: 'user_001',
-        text: 'Hi Ben! I have about 600g of tomatoes I can share. They\'re very ripe, perfect for sauce.',
+        text:
+            'Hi Ben! I have about 600g of tomatoes I can share. They\'re very ripe, perfect for sauce.',
         sentAt: DateTime.now().subtract(const Duration(minutes: 45)),
         status: MessageStatus.delivered,
       ),

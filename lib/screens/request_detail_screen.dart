@@ -19,6 +19,39 @@ class RequestDetailScreen extends StatelessWidget {
     this.onMessage,
   });
 
+  Future<void> _confirmDeleteRequest(
+    BuildContext context,
+    Listing currentRequest,
+  ) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Delete request?'),
+          content: Text(
+            'This will permanently remove "${currentRequest.title}" from requests.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete == true && context.mounted) {
+      context.read<ListingProvider>().removeRequest(currentRequest.id);
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ListingProvider>();
@@ -221,6 +254,50 @@ class RequestDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              if (isOwnRequest) ...[
+                const SizedBox(height: 20),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF5F5),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFFD5D5)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Delete Request',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.red,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Remove this request permanently from the marketplace.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: FreshCycleTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: () =>
+                            _confirmDeleteRequest(context, currentRequest),
+                        icon: const Icon(Icons.delete_outline_rounded),
+                        label: const Text('Delete request'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
