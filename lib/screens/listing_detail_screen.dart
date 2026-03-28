@@ -4,6 +4,7 @@ import '../models/listing.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../providers/listing_provider.dart';
+import 'post_listing_screen.dart';
 
 class ListingDetailScreen extends StatelessWidget {
   final Listing listing;
@@ -54,18 +55,29 @@ class ListingDetailScreen extends StatelessWidget {
                   ),
                   child: IconButton(
                     icon: Icon(
-                      currentListing.isSaved
-                          ? Icons.bookmark_rounded
-                          : Icons.bookmark_border_rounded,
+                      listing.seller.id == 'user_001'
+                          ? Icons.edit_rounded
+                          : currentListing.isSaved
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_border_rounded,
                       size: 20,
                     ),
-                    color: currentListing.isSaved
+                    color: listing.seller.id == 'user_001'
                         ? FreshCycleTheme.primary
-                        : FreshCycleTheme.textPrimary,
+                        : currentListing.isSaved
+                            ? FreshCycleTheme.primary
+                            : FreshCycleTheme.textPrimary,
                     onPressed: () {
-                      context.read<ListingProvider>().toggleSave(
-                        currentListing.id,
-                      );
+                      if (listing.seller.id == 'user_001') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PostListingScreen(existingListing: listing),
+                            ),
+                          );
+                        } else {
+                          context.read<ListingProvider>().toggleSave(listing.id);
+                        }
                     },
                   ),
                 ),

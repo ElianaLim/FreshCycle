@@ -9,6 +9,7 @@ import 'post_listing_screen.dart';
 import 'package:provider/provider.dart';
 import '../providers/listing_provider.dart';
 import 'listing_detail_screen.dart';
+import 'saved_items_screen.dart';
 
 class MarketplaceScreen extends StatefulWidget {
   const MarketplaceScreen({super.key});
@@ -228,10 +229,17 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
             actions: [
               IconButton(
                 icon: const Icon(
-                  Icons.tune_rounded,
+                  Icons.bookmark_border_rounded, 
                   color: FreshCycleTheme.textPrimary,
                 ),
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SavedItemsScreen(),
+                    ),
+                  );
+                },
               ),
               IconButton(
                 icon: const Icon(
