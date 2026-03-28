@@ -13,6 +13,16 @@ class User {
     this.profilePictureUrl,
   });
 
+  factory User.fromMap(Map<String, dynamic> map) {
+    return User(
+      id: map['id'] as String,
+      name: map['name'] as String,
+      email: map['email'] as String,
+      initials: map['initials'] as String? ?? 'U',
+      profilePictureUrl: map['profile_picture_url'] as String?,
+    );
+  }
+
   // Sample user for demo
   static const User sampleUser = User(
     id: 'user_001',

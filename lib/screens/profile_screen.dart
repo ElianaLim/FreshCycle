@@ -1,50 +1,93 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/user.dart';
 import '../theme/app_theme.dart';
-import '../widgets/common_widgets.dart';
+import '../providers/auth_provider.dart';
 
 class ProfileScreen extends StatelessWidget {
-  final VoidCallback onLogin;
-  final VoidCallback onLogout;
-  final User? currentUser;
-
-  const ProfileScreen({
-    super.key,
-    required this.onLogin,
-    required this.onLogout,
-    this.currentUser,
-  });
-
-  bool get isLoggedIn => currentUser != null;
+  const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    if (!isLoggedIn) {
-      return _LoginScreen(onLogin: onLogin);
-    }
-    return _ProfileContent(
-      user: currentUser!,
-      onLogout: onLogout,
+    return Consumer<AuthProvider>(
+      builder: (context, auth, child) {
+        if (!auth.isLoggedIn) {
+          return _LoginRegisterScreen(authProvider: auth);
+        }
+        return _ProfileContent(user: auth.user!);
+      },
     );
   }
 }
 
-class _LoginScreen extends StatelessWidget {
-  final VoidCallback onLogin;
+class _LoginRegisterScreen extends StatefulWidget {
+  final AuthProvider authProvider;
 
-  const _LoginScreen({required this.onLogin});
+  const _LoginRegisterScreen({required this.authProvider});
+
+  @override
+  State<_LoginRegisterScreen> createState() => _LoginRegisterScreenState();
+}
+
+class _LoginRegisterScreenState extends State<_LoginRegisterScreen> {
+  bool _isLogin = true;
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final auth = widget.authProvider;
+    bool success;
+
+    if (_isLogin) {
+      success = await auth.login(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+    } else {
+      success = await auth.register(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+    }
+
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(auth.errorMessage ?? 'An error occurred'),
+          backgroundColor: FreshCycleTheme.urgencyCritical,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: FreshCycleTheme.surfaceGray,
       body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Form(
+            key: _formKey,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const SizedBox(height: 40),
+                // Logo/Icon
                 Container(
                   width: 80,
                   height: 80,
@@ -53,65 +96,173 @@ class _LoginScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
-                    Icons.person_outline_rounded,
+                    Icons.eco_rounded,
                     size: 40,
                     color: FreshCycleTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Welcome to FreshCycle',
-                  style: TextStyle(
-                    fontSize: 22,
+                // Title
+                Text(
+                  _isLogin ? 'Welcome Back' : 'Create Account',
+                  style: const TextStyle(
+                    fontSize: 24,
                     fontWeight: FontWeight.w600,
                     color: FreshCycleTheme.textPrimary,
                   ),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Sign in to manage your profile,\npantry, and listings',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
+                Text(
+                  _isLogin
+                      ? 'Sign in to continue to FreshCycle'
+                      : 'Join us to reduce food waste',
+                  style: const TextStyle(
                     fontSize: 14,
                     color: FreshCycleTheme.textSecondary,
                   ),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: onLogin,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: FreshCycleTheme.primary,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+
+                // Name field (only for register)
+                if (!_isLogin) ...[
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Full Name',
+                      hintText: 'Enter your full name',
+                      prefixIcon: Icon(Icons.person_outline),
                     ),
-                    child: const Text(
-                      'Sign In',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    textCapitalization: TextCapitalization.words,
+                    validator: (value) {
+                      if (!_isLogin && (value == null || value.isEmpty)) {
+                        return 'Please enter your name';
+                      }
+                      return null;
+                    },
                   ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Email field
+                TextFormField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    hintText: 'Enter your email',
+                    prefixIcon: Icon(Icons.email_outlined),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  autocorrect: false,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your email';
+                    }
+                    if (!value.contains('@')) {
+                      return 'Please enter a valid email';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () {
-                    // For demo, just sign in directly
-                    onLogin();
-                  },
-                  child: const Text(
-                    'Continue as Guest',
-                    style: TextStyle(
-                      color: FreshCycleTheme.textSecondary,
-                      fontSize: 14,
+
+                // Password field
+                TextFormField(
+                  controller: _passwordController,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    hintText: 'Enter your password',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                      onPressed: () {
+                        setState(() => _obscurePassword = !_obscurePassword);
+                      },
                     ),
                   ),
+                  obscureText: _obscurePassword,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your password';
+                    }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // Submit button
+                Consumer<AuthProvider>(
+                  builder: (context, auth, child) {
+                    return SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: auth.isLoading ? null : _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: FreshCycleTheme.primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: auth.isLoading
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                _isLogin ? 'Sign In' : 'Register',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Toggle login/register
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _isLogin
+                          ? "Don't have an account? "
+                          : 'Already have an account? ',
+                      style: const TextStyle(
+                        color: FreshCycleTheme.textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _isLogin = !_isLogin);
+                        widget.authProvider.clearError();
+                      },
+                      child: Text(
+                        _isLogin ? 'Register' : 'Sign In',
+                        style: const TextStyle(
+                          color: FreshCycleTheme.primary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -124,12 +275,8 @@ class _LoginScreen extends StatelessWidget {
 
 class _ProfileContent extends StatelessWidget {
   final User user;
-  final VoidCallback onLogout;
 
-  const _ProfileContent({
-    required this.user,
-    required this.onLogout,
-  });
+  const _ProfileContent({required this.user});
 
   @override
   Widget build(BuildContext context) {
@@ -208,7 +355,6 @@ class _ProfileContent extends StatelessWidget {
                         // TODO: Implement edit profile
                       },
                     ),
-                    
                     _MenuItem(
                       icon: Icons.shopping_bag_outlined,
                       label: 'My Listings',
@@ -232,36 +378,49 @@ class _ProfileContent extends StatelessWidget {
                     ),
                     const Spacer(),
                     // Logout Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: OutlinedButton(
-                        onPressed: onLogout,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: FreshCycleTheme.urgencyCritical,
-                          side: const BorderSide(
-                            color: FreshCycleTheme.urgencyCritical,
-                            width: 1,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.logout, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Log Out',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
+                    Consumer<AuthProvider>(
+                      builder: (context, auth, child) {
+                        return SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: OutlinedButton(
+                            onPressed: auth.isLoading ? null : () => auth.logout(),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: FreshCycleTheme.urgencyCritical,
+                              side: const BorderSide(
+                                color: FreshCycleTheme.urgencyCritical,
+                                width: 1,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
+                            child: auth.isLoading
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: FreshCycleTheme.urgencyCritical,
+                                    ),
+                                  )
+                                : const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.logout, size: 20),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Log Out',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 24),
                   ],
@@ -295,6 +454,7 @@ class _MenuItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          margin: const EdgeInsets.only(bottom: 8),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
