@@ -26,6 +26,12 @@ class _PantryScreenState extends State<PantryScreen> {
     return UrgencyLevel.safe;
   }
 
+  UrgencyLevel _calculateUrgencyFromRelative(int relativeDays) {
+    if (relativeDays <= 1) return UrgencyLevel.critical;
+    if (relativeDays <= 3) return UrgencyLevel.soon;
+    return UrgencyLevel.safe;
+  }
+
   // Quick demo lookup for the scanner
   String lookupScannedName(String scannedCode) {
     Map<String, String> demoDatabase = {
@@ -37,7 +43,7 @@ class _PantryScreenState extends State<PantryScreen> {
   void _sortPantry() {
     myPantry.sort((a, b) {
       // 1. Sort by Expiry Date (Earliest first)
-      int dateCompare = a.expiryDate.compareTo(b.expiryDate);
+      int dateCompare = a.computedExpiryDate.compareTo(b.computedExpiryDate);
       if (dateCompare != 0) return dateCompare;
 
       // 2. Break ties with Food Type (Perishable first)
@@ -55,10 +61,17 @@ class _PantryScreenState extends State<PantryScreen> {
     final isEditing = existingItem != null;
     final nameController = TextEditingController(text: existingItem?.name);
     final costController = TextEditingController(text: existingItem?.cost?.toString());
+    final relativeDaysController = TextEditingController(
+      text: (existingItem != null && existingItem.expiryType == ExpiryType.relative) 
+        ? existingItem.relativeDays.toString() 
+        : '7',
+    );
     
     // Default to 7 days from now if not editing
     DateTime selectedDate = existingItem?.expiryDate ?? DateTime.now().add(const Duration(days: 7));
     FoodType selectedType = existingItem?.foodType ?? FoodType.perishable;
+    ExpiryType selectedExpiryType = existingItem != null ? existingItem.expiryType : ExpiryType.absolute;
+    int selectedRelativeDays = existingItem != null ? existingItem.relativeDays : 7;
 
     showModalBottomSheet(
       context: context,
@@ -157,40 +170,149 @@ class _PantryScreenState extends State<PantryScreen> {
                 ),
                 const SizedBox(height: 16),
                 
-                // Expiry Date Picker
+                // Expiry Type Toggle (Absolute Date vs Relative Days)
                 Container(
                   decoration: BoxDecoration(
                     border: Border.all(color: FreshCycleTheme.borderColor, width: 0.5),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: ListTile(
-                    title: const Text("Expiry Date", style: TextStyle(fontSize: 14, color: FreshCycleTheme.textSecondary)),
-                    subtitle: Text(
-                      "${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}",
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: FreshCycleTheme.textPrimary),
-                    ),
-                    trailing: const Icon(Icons.calendar_today_rounded, color: FreshCycleTheme.primary),
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDate,
-                        firstDate: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
-                        lastDate: DateTime.now().add(const Duration(days: 3650)),
-                        builder: (context, child) {
-                          return Theme(
-                            data: Theme.of(context).copyWith(
-                              colorScheme: const ColorScheme.light(
-                                primary: FreshCycleTheme.primary,
+                  child: Column(
+                    children: [
+                      // Toggle Row
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setSheetState(() => selectedExpiryType = ExpiryType.absolute),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: selectedExpiryType == ExpiryType.absolute 
+                                        ? FreshCycleTheme.primary 
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'Specific Date',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: selectedExpiryType == ExpiryType.absolute 
+                                            ? Colors.white 
+                                            : FreshCycleTheme.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                            child: child!,
-                          );
-                        },
-                      );
-                      if (picked != null) {
-                        setSheetState(() => selectedDate = picked);
-                      }
-                    },
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setSheetState(() => selectedExpiryType = ExpiryType.relative),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: selectedExpiryType == ExpiryType.relative 
+                                        ? FreshCycleTheme.primary 
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'Expires In',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: selectedExpiryType == ExpiryType.relative 
+                                            ? Colors.white 
+                                            : FreshCycleTheme.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Content based on selected type
+                      if (selectedExpiryType == ExpiryType.absolute)
+                        ListTile(
+                          title: const Text("Expiry Date", style: TextStyle(fontSize: 14, color: FreshCycleTheme.textSecondary)),
+                          subtitle: Text(
+                            "${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}",
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: FreshCycleTheme.textPrimary),
+                          ),
+                          trailing: const Icon(Icons.calendar_today_rounded, color: FreshCycleTheme.primary),
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: selectedDate,
+                              firstDate: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
+                              lastDate: DateTime.now().add(const Duration(days: 3650)),
+                              builder: (context, child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: const ColorScheme.light(
+                                      primary: FreshCycleTheme.primary,
+                                    ),
+                                  ),
+                                  child: child!,
+                                );
+                              },
+                            );
+                            if (picked != null) {
+                              setSheetState(() => selectedDate = picked);
+                            }
+                          },
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: relativeDaysController,
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (value) {
+                                    final days = int.tryParse(value);
+                                    if (days != null && days > 0) {
+                                      setSheetState(() => selectedRelativeDays = days);
+                                    } else if (days != null && days <= 0) {
+                                      setSheetState(() => selectedRelativeDays = 1);
+                                      relativeDaysController.text = '1';
+                                    }
+                                  },
+                                  decoration: const InputDecoration(
+                                    labelText: 'Days',
+                                    hintText: 'e.g. 7',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 2,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  child: Text(
+                                    'day${selectedRelativeDays == 1 ? '' : 's'} from now',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: FreshCycleTheme.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -207,15 +329,36 @@ class _PantryScreenState extends State<PantryScreen> {
                         );
                         return;
                       }
+                      
+                      // Validate expiry date is in the future
+                      if (selectedExpiryType == ExpiryType.absolute && selectedDate.isBefore(DateTime.now())) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Expiry date must be today or in the future')),
+                        );
+                        return;
+                      }
+                      if (selectedExpiryType == ExpiryType.relative && selectedRelativeDays <= 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Days must be at least 1')),
+                        );
+                        return;
+                      }
+                      
+                      // Calculate urgency based on expiry type
+                      final urgency = selectedExpiryType == ExpiryType.absolute
+                          ? _calculateUrgency(selectedDate)
+                          : _calculateUrgencyFromRelative(selectedRelativeDays);
 
                       final newItem = PantryItem(
                         id: isEditing ? existingItem.id : DateTime.now().millisecondsSinceEpoch.toString(),
                         name: nameController.text.trim(),
                         category: selectedType == FoodType.perishable ? "Perishable" : "Non-perishable",
                         expiryDate: selectedDate,
+                        relativeDays: selectedRelativeDays,
+                        expiryType: selectedExpiryType,
                         foodType: selectedType,
                         cost: double.tryParse(costController.text),
-                        urgency: _calculateUrgency(selectedDate),
+                        urgency: urgency,
                       );
                       
                       setState(() {
@@ -249,7 +392,7 @@ class _PantryScreenState extends State<PantryScreen> {
   }
 
   Color _progressBarColor(PantryItem item) {
-    final daysLeft = item.expiryDate.difference(DateTime.now()).inDays;
+    final daysLeft = item.computedExpiryDate.difference(DateTime.now()).inDays;
     if (daysLeft <= 1) return Colors.red;
     if (daysLeft <= 3) return Colors.orange;
     return FreshCycleTheme.primary;

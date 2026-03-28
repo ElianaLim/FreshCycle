@@ -322,7 +322,8 @@ class _ProfileContent extends StatelessWidget {
               decoration: const BoxDecoration(
                 color: Colors.white,
               ),
-              child: Column(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Profile Avatar
                   Container(
@@ -343,35 +344,122 @@ class _ProfileContent extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  // User Name
-                  Text(
-                    user.name,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: FreshCycleTheme.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  // User Email
-                  Text(
-                    user.email,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: FreshCycleTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  // User Email
-                  Text(
-                    user.number,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: FreshCycleTheme.textSecondary,
+                  const SizedBox(width: 32),
+                  // Name, email, phone column
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // User Name
+                        Text(
+                          user.name,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w600,
+                            color: FreshCycleTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        // Email with icon
+                        Row(
+                          children: [
+                            Icon(Icons.email, size: 16, color: FreshCycleTheme.textSecondary),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                user.email,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: FreshCycleTheme.textSecondary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Row(children: [
+                          Icon(Icons.phone, size: 16, color: FreshCycleTheme.textSecondary),
+                          const SizedBox(width: 4),
+                        // Phone number
+                        Text(
+                          user.number,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: FreshCycleTheme.textSecondary,
+                          ),
+                        )
+                        ],),
+                      ],
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Rewards Banner
+            GestureDetector(
+              onTap: () {
+                // TODO: Navigate to rewards screen
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      FreshCycleTheme.primary,
+                      FreshCycleTheme.primary.withValues(alpha: 0.8),
+                    ],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(
+                        Icons.card_giftcard_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Your Rewards',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${user.points} Points',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 8),
