@@ -212,24 +212,8 @@ class RewardsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               _InfoItem(
-                icon: Icons.add_circle_outline,
-                text: 'Post a new listing: +5 points',
-              ),
-              _InfoItem(
-                icon: Icons.sell_outlined,
-                text: 'Sell an item: +20 points',
-              ),
-              _InfoItem(
-                icon: Icons.check_circle_outline,
-                text: 'Complete a pickup: +5% of sold price',
-              ),
-              _InfoItem(
-                icon: Icons.emoji_events_outlined,
-                text: 'Weekly listing bonus: +8 points',
-              ),
-              _InfoItem(
-                icon: Icons.verified_outlined,
-                text: 'Verify your account: +20 points',
+                icon: Icons.percent,
+                text: 'Earn 1.5% points per transaction',
               ),
               const SizedBox(height: 20),
               const Text(
