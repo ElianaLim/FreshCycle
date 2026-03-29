@@ -94,17 +94,19 @@ class StarRating extends StatelessWidget {
 }
 
 class UrgencyBadge extends StatelessWidget {
-  final UrgencyLevel urgency;
+  final UrgencyLevel? urgency;
   final String label;
 
   const UrgencyBadge({super.key, required this.urgency, required this.label});
+
+  UrgencyLevel get _effectiveUrgency => urgency ?? UrgencyLevel.safe;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: urgencyBgColor(urgency),
+        color: urgencyBgColor(_effectiveUrgency),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -112,7 +114,7 @@ class UrgencyBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: urgencyColor(urgency),
+          color: urgencyColor(_effectiveUrgency),
         ),
       ),
     );
@@ -120,12 +122,14 @@ class UrgencyBadge extends StatelessWidget {
 }
 
 class UrgencyBar extends StatelessWidget {
-  final UrgencyLevel urgency;
+  final UrgencyLevel? urgency;
 
   const UrgencyBar({super.key, required this.urgency});
 
+  UrgencyLevel get _effectiveUrgency => urgency ?? UrgencyLevel.safe;
+
   double get _fillFraction {
-    switch (urgency) {
+        switch (_effectiveUrgency) {
       case UrgencyLevel.critical:
         return 0.9;
       case UrgencyLevel.soon:
@@ -142,7 +146,7 @@ class UrgencyBar extends StatelessWidget {
         height: 3,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: urgencyBgColor(urgency),
+          color: urgencyBgColor(_effectiveUrgency),
           borderRadius: BorderRadius.circular(2),
         ),
         child: Align(
@@ -151,7 +155,7 @@ class UrgencyBar extends StatelessWidget {
             height: 3,
             width: constraints.maxWidth * _fillFraction,
             decoration: BoxDecoration(
-              color: urgencyColor(urgency),
+              color: urgencyColor(_effectiveUrgency),
               borderRadius: BorderRadius.circular(2),
             ),
           ),

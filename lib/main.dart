@@ -65,6 +65,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   Key _notificationsKey = const Key('notifications');
+  int _lastIndex = 2;
 
   final List<Widget> _screens = [
     PantryScreen(),
@@ -73,6 +74,25 @@ class _MainShellState extends State<MainShell> {
     _PlaceholderScreen(label: 'Notifications', icon: Icons.notifications_none_rounded),
     ProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _lastIndex = 2;
+  }
+
+  void _onNavigationChanged(int newIndex) {
+    final nav = context.read<NavigationProvider>();
+    final listingProvider = context.read<ListingProvider>();
+    
+    // Refetch marketplace data when coming back to marketplace tab
+    if (_lastIndex != 2 && newIndex == 2) {
+      listingProvider.loadListingsFromDb();
+    }
+    
+    _lastIndex = newIndex;
+    nav.navigateTo(newIndex);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -110,21 +130,21 @@ class _MainShellState extends State<MainShell> {
                   activeIcon: Icons.kitchen_rounded,
                   label: 'Pantry',
                   isActive: currentIndex == 0,
-                  onTap: () => nav.navigateTo(0),
+                  onTap: () => _onNavigationChanged(0),
                 ),
                 _NavItem(
                   icon: Icons.restaurant_menu_outlined,
                   activeIcon: Icons.restaurant_menu_rounded,
                   label: 'Recipes',
                   isActive: currentIndex == 1,
-                  onTap: () => nav.navigateTo(1),
+                  onTap: () => _onNavigationChanged(1),
                 ),
                 _NavItem(
                   icon: Icons.storefront_outlined,
                   activeIcon: Icons.storefront_rounded,
                   label: 'Market',
                   isActive: currentIndex == 2,
-                  onTap: () => nav.navigateTo(2),
+                  onTap: () => _onNavigationChanged(2),
                 ),
                 _NavItem(
                   icon: Icons.notifications_none_rounded,
@@ -135,7 +155,7 @@ class _MainShellState extends State<MainShell> {
                     setState(() {
                       _notificationsKey = Key('notifications_${DateTime.now().millisecondsSinceEpoch}');
                     });
-                    nav.navigateTo(3);
+                    _onNavigationChanged(3);
                   },
                 ),
                 _NavItem(
@@ -143,7 +163,7 @@ class _MainShellState extends State<MainShell> {
                   activeIcon: Icons.person_rounded,
                   label: 'Profile',
                   isActive: currentIndex == 4,
-                  onTap: () => nav.navigateTo(4),
+                  onTap: () => _onNavigationChanged(4),
                 ),
               ],
             ),
