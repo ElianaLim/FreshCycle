@@ -354,6 +354,10 @@ class SellingCard extends StatelessWidget {
 
   dynamic _categoryIcon(String category) {
     switch (category.toLowerCase()) {
+      case 'perishable':
+        return Icons.schedule_rounded;
+      case 'non-perishable':
+        return Icons.inventory_2_outlined;
       case 'produce':
         return Icons.eco_outlined;
       case 'dairy':

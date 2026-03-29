@@ -242,7 +242,6 @@ class _ConversationList extends StatelessWidget {
   }
 }
 
-
 class _ConversationTile extends StatelessWidget {
   final Conversation conversation;
   final bool isLast;
@@ -461,7 +460,6 @@ class _ContextChip extends StatelessWidget {
   }
 }
 
-
 class ChatScreen extends StatefulWidget {
   final Conversation conversation;
   final String currentUserId;
@@ -486,6 +484,7 @@ class ChatScreenState extends State<ChatScreen> {
   late List<ChatMessage> _messages;
   Timer? _refreshTimer;
   bool _isMarkingComplete = false;
+  bool _isBuyerConfirming = false;
 
   @override
   void initState() {
@@ -508,6 +507,14 @@ class ChatScreenState extends State<ChatScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _markAsRead();
     });
+
+    final listingId = widget.conversation.relatedListingId;
+    if (listingId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<ListingProvider>().refreshTransactionState(listingId);
+      });
+    }
   }
 
   Future<void> _markAsRead() async {
@@ -591,6 +598,23 @@ class ChatScreenState extends State<ChatScreen> {
     if (listingId == null || _isMarkingComplete) return;
 
     final listingProvider = context.read<ListingProvider>();
+    final buyerId = widget.conversation.participantId;
+    if (!listingProvider.isBuyerConfirmedForListing(
+      listingId,
+      buyerId: buyerId,
+    )) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Seller can complete only after buyer confirms purchase.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     double? soldPrice;
     try {
       soldPrice = listingProvider.listings
@@ -628,7 +652,10 @@ class ChatScreenState extends State<ChatScreen> {
     if (shouldComplete != true || !mounted) return;
 
     setState(() => _isMarkingComplete = true);
-    final didComplete = listingProvider.completeListingTransaction(listingId);
+    final didComplete = await listingProvider.completeListingTransaction(
+      listingId,
+      sellerId: widget.currentUserId,
+    );
 
     if (didComplete) {
       if (rewardPoints > 0) {
@@ -653,6 +680,78 @@ class ChatScreenState extends State<ChatScreen> {
 
     if (mounted) {
       setState(() => _isMarkingComplete = false);
+    }
+  }
+
+  Future<void> _confirmBuyerPurchase() async {
+    final listingId = widget.conversation.relatedListingId;
+    if (listingId == null || _isBuyerConfirming) return;
+
+    final listingProvider = context.read<ListingProvider>();
+    final listing = listingProvider.listings.where((l) => l.id == listingId);
+    final resolved = listing.isNotEmpty ? listing.first : null;
+    final basePrice = resolved?.price ?? 0;
+    final fee = basePrice * 0.02;
+    final total = basePrice + fee;
+
+    final shouldConfirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm purchase'),
+        content: Text(
+          'Price: P${basePrice.toStringAsFixed(2)}\n'
+          'Transaction fee (2%): P${fee.toStringAsFixed(2)}\n'
+          'Total: P${total.toStringAsFixed(2)}\n\n'
+          'By confirming, the seller will be allowed to finalize this transaction.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Confirm Buy'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldConfirm != true || !mounted) return;
+
+    setState(() => _isBuyerConfirming = true);
+    final confirmed = await listingProvider.confirmBuyerPurchaseIntent(
+      listingId: listingId,
+      buyerId: widget.currentUserId,
+      sellerId: resolved?.seller.id ?? widget.conversation.participantId,
+      agreedPrice: resolved?.price,
+      feePercent: 0.02,
+    );
+
+    if (confirmed) {
+      final messagesProvider = context.read<MessagesProvider>();
+      await messagesProvider.sendMessage(
+        conversationId: widget.conversation.id,
+        text:
+            '[BUYER_CONFIRMED] I confirm this purchase. I understand there is a 2% transaction fee.',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Purchase confirmed. Waiting for seller to complete.',
+            ),
+          ),
+        );
+      }
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to confirm purchase. Try again.')),
+      );
+    }
+
+    if (mounted) {
+      setState(() => _isBuyerConfirming = false);
     }
   }
 
@@ -763,6 +862,12 @@ class ChatScreenState extends State<ChatScreen> {
       listingId,
       widget.currentUserId,
     );
+    final txState = listingProvider.transactionStateForListing(listingId);
+    final isBuyerConfirmedForThisChat =
+        txState != null &&
+        txState.buyerConfirmed &&
+        txState.buyerId == c.participantId;
+    final isBuyer = !isSeller;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
@@ -824,6 +929,10 @@ class ChatScreenState extends State<ChatScreen> {
                     Text(
                       isCompleted
                           ? 'Transaction completed'
+                          : isSeller && !isBuyerConfirmedForThisChat
+                          ? 'Waiting for buyer confirmation'
+                          : isBuyer && txState?.buyerConfirmed == true
+                          ? 'Purchase confirmed. Waiting for seller.'
                           : resolved?.price != null
                           ? '₱${resolved!.price!.toStringAsFixed(0)}'
                           : 'Tap to view details',
@@ -838,9 +947,41 @@ class ChatScreenState extends State<ChatScreen> {
                 ),
               ),
               const SizedBox(width: 6),
-              if (isSeller)
+              if (isBuyer && !isCompleted)
+                FilledButton(
+                  onPressed:
+                      (txState?.buyerConfirmed == true || _isBuyerConfirming)
+                      ? null
+                      : _confirmBuyerPurchase,
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                  ),
+                  child: _isBuyerConfirming
+                      ? const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          txState?.buyerConfirmed == true
+                              ? 'Confirmed'
+                              : 'Confirm Buy',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                )
+              else if (isSeller)
                 GestureDetector(
-                  onTap: isCompleted || _isMarkingComplete
+                  onTap:
+                      isCompleted ||
+                          _isMarkingComplete ||
+                          !isBuyerConfirmedForThisChat
                       ? null
                       : _markTransactionComplete,
                   child: Container(

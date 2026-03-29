@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:barcode_scan2/barcode_scan2.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../data/db.dart';
@@ -24,6 +28,31 @@ class PantryScreen extends StatefulWidget {
 
 class _PantryScreenState extends State<PantryScreen>
     with SingleTickerProviderStateMixin {
+  static final RegExp _ymdPattern = RegExp(
+    r'(\d{4})[./-](\d{1,2})[./-](\d{1,2})',
+  );
+  static final RegExp _mdyOrDmyPattern = RegExp(
+    r'(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})',
+  );
+  static final RegExp _monthYearPattern = RegExp(
+    r'\b(\d{1,2})[./-](\d{2,4})\b',
+  );
+  static final RegExp _monthNamePattern = RegExp(
+    r'\b(\d{1,2})\s*(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\s*(\d{2,4})\b',
+    caseSensitive: false,
+  );
+  static final RegExp _spacedMonthNamePattern = RegExp(
+    r'\b(\d{1,2})\s+(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)\s+(\d{2,4})\b',
+    caseSensitive: false,
+  );
+
+  // FIXED: Adjusted to not use negative lookahead at the end and strictly look for 2 digits for the year
+  static final RegExp _compactMonthNamePattern = RegExp(
+    r'(?<!\d)(\d{1,2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2})',
+    caseSensitive: false,
+  );
+
+  final ImagePicker _imagePicker = ImagePicker();
   List<PantryItem> myPantry = [];
   String _selectedCategory = 'All';
   bool _isLoading = true;
@@ -78,14 +107,29 @@ class _PantryScreenState extends State<PantryScreen>
     _highlightController.repeat(reverse: true);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-      final item = myPantry.firstWhere((i) => i.id == itemId, orElse: () => myPantry.first);
-      final expiry = DateTime(item.computedExpiryDate.year, item.computedExpiryDate.month, item.computedExpiryDate.day);
+      final today = DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+      );
+      final item = myPantry.firstWhere(
+        (i) => i.id == itemId,
+        orElse: () => myPantry.first,
+      );
+      final expiry = DateTime(
+        item.computedExpiryDate.year,
+        item.computedExpiryDate.month,
+        item.computedExpiryDate.day,
+      );
       final isExpired = expiry.isBefore(today);
 
       if (isExpired) {
         final expiredItems = myPantry.where((i) {
-          final e = DateTime(i.computedExpiryDate.year, i.computedExpiryDate.month, i.computedExpiryDate.day);
+          final e = DateTime(
+            i.computedExpiryDate.year,
+            i.computedExpiryDate.month,
+            i.computedExpiryDate.day,
+          );
           return e.isBefore(today);
         }).toList();
         final idx = expiredItems.indexWhere((i) => i.id == itemId);
@@ -98,7 +142,11 @@ class _PantryScreenState extends State<PantryScreen>
         }
       } else {
         final expiringItems = myPantry.where((i) {
-          final e = DateTime(i.computedExpiryDate.year, i.computedExpiryDate.month, i.computedExpiryDate.day);
+          final e = DateTime(
+            i.computedExpiryDate.year,
+            i.computedExpiryDate.month,
+            i.computedExpiryDate.day,
+          );
           final d = e.difference(today).inDays;
           return !e.isBefore(today) && d <= 3;
         }).toList();
@@ -131,7 +179,6 @@ class _PantryScreenState extends State<PantryScreen>
     _expiringScrollController.dispose();
     super.dispose();
   }
-
 
   Future<void> _loadPantry() async {
     setState(() => _isLoading = true);
@@ -225,7 +272,6 @@ class _PantryScreenState extends State<PantryScreen>
     }
   }
 
-
   UrgencyLevel _calculateUrgency(DateTime expiry) {
     final today = DateTime(
       DateTime.now().year,
@@ -254,11 +300,240 @@ class _PantryScreenState extends State<PantryScreen>
   }
 
   String lookupScannedName(String scannedCode) {
-    const demoDatabase = {'1200108000240': 'Cheetos Crunchy 250g'};
+    const demoDatabase = {
+      '1200108000240': 'Cheetos Crunchy 250g',
+      '1200108000523': "Lay's Cheddar & Sour Cream 170g",
+    };
     return demoDatabase[scannedCode] ?? 'Scanned Item ($scannedCode)';
   }
 
-// # This function was created using Generative AI
+  Future<DateTime?> _scanExpiryDateFromImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt_rounded),
+              title: const Text('Scan with camera'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    debugPrint('[OCR] Image source selected: $source');
+    if (source == null) return null;
+
+    if (source == ImageSource.camera) {
+      final status = await Permission.camera.request();
+      if (status.isPermanentlyDenied) {
+        await openAppSettings();
+        return null;
+      }
+      if (!status.isGranted) return null;
+    }
+
+    final picked = await _imagePicker.pickImage(
+      source: source,
+      imageQuality: 85,
+    );
+    debugPrint('[OCR] Picked image path: ${picked?.path}');
+    if (picked == null) return null;
+
+    final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    try {
+      final inputImage = InputImage.fromFilePath(picked.path);
+      final recognized = await recognizer.processImage(inputImage);
+      debugPrint('[OCR] Raw recognized text:\n${recognized.text}');
+      final parsed = _extractExpiryDate(recognized.text);
+      debugPrint('[OCR] Final parsed expiry date: $parsed');
+      return parsed;
+    } on MissingPluginException catch (e) {
+      debugPrint('[OCR] MissingPluginException: $e');
+      debugPrint(
+        '[OCR] Plugin not registered. Do a full app restart (stop + flutter run), not hot reload.',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'OCR plugin not initialized. Please fully restart the app.',
+            ),
+          ),
+        );
+      }
+      return null;
+    } on PlatformException catch (e) {
+      debugPrint('[OCR] PlatformException: ${e.code} - ${e.message}');
+      return null;
+    } catch (e) {
+      debugPrint('[OCR] Unexpected OCR error: $e');
+      return null;
+    } finally {
+      try {
+        await recognizer.close();
+      } on MissingPluginException catch (e) {
+        debugPrint('[OCR] recognizer.close MissingPluginException: $e');
+      } catch (e) {
+        debugPrint('[OCR] recognizer.close error: $e');
+      }
+    }
+  }
+
+  // FIXED: Adjusted string cleaning logic to preserve spaces
+  DateTime? _extractExpiryDate(String text) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    // Normalize separators so OCR strings like "12 FEB, 2027" are parsable.
+    final normalized = text
+        .toUpperCase()
+        .replaceAll('\n', ' ')
+        .replaceAll(',', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    // Instead of stripping everything, just normalize punctuation separators to help the regex.
+    // This preserves the '19APR26' as a distinct block even if 'C3A' follows separated by space.
+    final cleaned = normalized.replaceAll(RegExp(r'[.\-:]'), '');
+    debugPrint('[OCR] Normalized text: $normalized');
+    debugPrint('[OCR] Cleaned text: $cleaned');
+
+    // Prioritize common stamped labels like "19APR26" or "EXP19APR26".
+    for (final match in _compactMonthNamePattern.allMatches(cleaned)) {
+      debugPrint('[OCR] Compact match: ${match.group(0)}');
+      final day = int.tryParse(match.group(1)!);
+      final month = _monthFromName(match.group(2)!);
+      final rawYear = int.tryParse(match.group(3)!);
+      final year = _normalizeYear(rawYear);
+      final parsed = _safeDate(year, month, day);
+      debugPrint('[OCR] Compact parsed candidate: $parsed');
+      if (parsed != null && !parsed.isBefore(today)) return parsed;
+    }
+
+    // Explicitly support spaced month format like "12 FEB 2027".
+    for (final match in _spacedMonthNamePattern.allMatches(normalized)) {
+      debugPrint('[OCR] Spaced month-name match: ${match.group(0)}');
+      final day = int.tryParse(match.group(1)!);
+      final month = _monthFromName(match.group(2)!);
+      final rawYear = int.tryParse(match.group(3)!);
+      final year = _normalizeYear(rawYear);
+      final parsed = _safeDate(year, month, day);
+      debugPrint('[OCR] Spaced month-name parsed candidate: $parsed');
+      if (parsed != null && !parsed.isBefore(today)) return parsed;
+    }
+
+    for (final match in _ymdPattern.allMatches(normalized)) {
+      debugPrint('[OCR] YMD match: ${match.group(0)}');
+      final year = int.tryParse(match.group(1)!);
+      final month = int.tryParse(match.group(2)!);
+      final day = int.tryParse(match.group(3)!);
+      final parsed = _safeDate(year, month, day);
+      debugPrint('[OCR] YMD parsed candidate: $parsed');
+      if (parsed != null && !parsed.isBefore(today)) return parsed;
+    }
+
+    for (final match in _mdyOrDmyPattern.allMatches(normalized)) {
+      debugPrint('[OCR] MDY/DMY match: ${match.group(0)}');
+      final first = int.tryParse(match.group(1)!);
+      final second = int.tryParse(match.group(2)!);
+      final rawYear = int.tryParse(match.group(3)!);
+      final year = _normalizeYear(rawYear);
+      if (first == null || second == null || year == null) continue;
+
+      DateTime? parsed;
+      if (first > 12) {
+        parsed = _safeDate(year, second, first);
+      } else {
+        parsed = _safeDate(year, first, second);
+      }
+
+      debugPrint('[OCR] MDY/DMY parsed candidate: $parsed');
+      if (parsed != null && !parsed.isBefore(today)) return parsed;
+    }
+
+    for (final match in _monthNamePattern.allMatches(normalized)) {
+      debugPrint('[OCR] Month-name match: ${match.group(0)}');
+      final day = int.tryParse(match.group(1)!);
+      final month = _monthFromName(match.group(2)!);
+      final rawYear = int.tryParse(match.group(3)!);
+      final year = _normalizeYear(rawYear);
+      final parsed = _safeDate(year, month, day);
+      debugPrint('[OCR] Month-name parsed candidate: $parsed');
+      if (parsed != null && !parsed.isBefore(today)) return parsed;
+    }
+
+    for (final match in _monthYearPattern.allMatches(normalized)) {
+      debugPrint('[OCR] Month-year match: ${match.group(0)}');
+      final month = int.tryParse(match.group(1)!);
+      final rawYear = int.tryParse(match.group(2)!);
+      final year = _normalizeYear(rawYear);
+      if (month == null || year == null) continue;
+      final parsed = _safeDate(year, month, 1);
+      debugPrint('[OCR] Month-year parsed candidate: $parsed');
+      if (parsed != null && !parsed.isBefore(today)) return parsed;
+    }
+
+    debugPrint(
+      '[OCR] No valid future expiry date detected from recognized text.',
+    );
+    return null;
+  }
+
+  int? _normalizeYear(int? rawYear) {
+    if (rawYear == null) return null;
+    if (rawYear >= 100) return rawYear;
+    return 2000 + rawYear;
+  }
+
+  int? _monthFromName(String name) {
+    final key = name.toLowerCase();
+    const months = {
+      'jan': 1,
+      'january': 1,
+      'feb': 2,
+      'february': 2,
+      'mar': 3,
+      'march': 3,
+      'apr': 4,
+      'april': 4,
+      'may': 5,
+      'jun': 6,
+      'june': 6,
+      'jul': 7,
+      'july': 7,
+      'aug': 8,
+      'august': 8,
+      'sep': 9,
+      'sept': 9,
+      'september': 9,
+      'oct': 10,
+      'october': 10,
+      'nov': 11,
+      'november': 11,
+      'dec': 12,
+      'december': 12,
+    };
+    return months[key];
+  }
+
+  DateTime? _safeDate(int? year, int? month, int? day) {
+    if (year == null || month == null || day == null) return null;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    final parsed = DateTime(year, month, day);
+    if (parsed.year != year || parsed.month != month || parsed.day != day) {
+      return null;
+    }
+    return parsed;
+  }
+
   void _showAddItemSheet({PantryItem? existingItem, int? index}) {
     final isEditing = existingItem != null;
     final nameController = TextEditingController(text: existingItem?.name);
@@ -479,16 +754,61 @@ class _PantryScreenState extends State<PantryScreen>
                             ),
                           ),
                           subtitle: Text(
-                            '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}',
+                            DateFormat('yyyy-MM-dd').format(selectedDate),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                               color: FreshCycleTheme.textPrimary,
                             ),
                           ),
-                          trailing: const Icon(
-                            Icons.calendar_today_rounded,
-                            color: FreshCycleTheme.primary,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: 'Scan expiry date',
+                                icon: const Icon(
+                                  Icons.document_scanner_outlined,
+                                  color: FreshCycleTheme.primary,
+                                ),
+                                onPressed: () async {
+                                  final scannedDate =
+                                      await _scanExpiryDateFromImage();
+                                  if (!mounted) return;
+
+                                  if (scannedDate == null) {
+                                    debugPrint(
+                                      '[OCR] Scan finished but no date selected in UI.',
+                                    );
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'No valid expiry date detected from image',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  setSheetState(
+                                    () => selectedDate = scannedDate,
+                                  );
+                                  debugPrint(
+                                    '[OCR] UI selectedDate updated to: ${DateFormat('yyyy-MM-dd').format(selectedDate)}',
+                                  );
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Detected expiry date: ${DateFormat('yyyy-MM-dd').format(scannedDate)}',
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              const Icon(
+                                Icons.calendar_today_rounded,
+                                color: FreshCycleTheme.primary,
+                              ),
+                            ],
                           ),
                           onTap: () async {
                             final picked = await showDatePicker(
@@ -681,7 +1001,7 @@ class _PantryScreenState extends State<PantryScreen>
       ),
     );
   }
-// # This function was created using Generative AI
+
   // ── Convert to Listing ────────────────────────────────────────────────────────────
 
   Future<void> _convertToListing(PantryItem item) async {
@@ -736,7 +1056,7 @@ class _PantryScreenState extends State<PantryScreen>
 
   void _navigateToPostListing(PantryItem item) {
     final authUser = context.read<AuthProvider>().user;
-    
+
     if (authUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please login to post listings')),
@@ -747,7 +1067,7 @@ class _PantryScreenState extends State<PantryScreen>
     // Create a minimal Listing object to prefetch form data
     // Use actual user ID to avoid UUID error when saving
     final prefilledListing = Listing(
-      id: '',  // Empty ID - will be generated on save
+      id: '', // Empty ID - will be generated on save
       sellerId: authUser.id,
       type: ListingType.selling,
       title: item.name,
@@ -869,7 +1189,6 @@ class _PantryScreenState extends State<PantryScreen>
     return Icon(Icons.inventory_2_outlined, size: size, color: color);
   }
 
-
   Widget _buildExpiringCard(PantryItem item) {
     final barColor = _progressBarColor(item);
     final progress = _progressValue(item);
@@ -881,14 +1200,19 @@ class _PantryScreenState extends State<PantryScreen>
       builder: (context, child) {
         final glow = isHighlighted ? _highlightAnim.value : 0.0;
         return GestureDetector(
-          onLongPress: () => _showAddItemSheet(existingItem: item, index: index),
+          onLongPress: () =>
+              _showAddItemSheet(existingItem: item, index: index),
           child: Container(
             width: 140,
             margin: const EdgeInsets.only(right: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: isHighlighted
-                  ? Color.lerp(Colors.white, FreshCycleTheme.urgencySoonBg, glow)!
+                  ? Color.lerp(
+                      Colors.white,
+                      FreshCycleTheme.urgencySoonBg,
+                      glow,
+                    )!
                   : Colors.white,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
@@ -911,16 +1235,23 @@ class _PantryScreenState extends State<PantryScreen>
                         color: urgencyBgColor(item.urgency),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(item.categoryIcon,
-                          size: 18, color: urgencyColor(item.urgency)),
+                      child: Icon(
+                        item.categoryIcon,
+                        size: 18,
+                        color: urgencyColor(item.urgency),
+                      ),
                     ),
                     const Spacer(),
                     PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert_rounded,
-                          size: 18, color: FreshCycleTheme.textSecondary),
+                      icon: const Icon(
+                        Icons.more_vert_rounded,
+                        size: 18,
+                        color: FreshCycleTheme.textSecondary,
+                      ),
                       padding: EdgeInsets.zero,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       onSelected: (value) {
                         if (value == 'edit') {
                           _showAddItemSheet(existingItem: item, index: index);
@@ -933,28 +1264,41 @@ class _PantryScreenState extends State<PantryScreen>
                       itemBuilder: (context) => [
                         const PopupMenuItem(
                           value: 'edit',
-                          child: Row(children: [
-                            Icon(Icons.edit_outlined, size: 20),
-                            SizedBox(width: 12),
-                            Text('Edit'),
-                          ]),
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_outlined, size: 20),
+                              SizedBox(width: 12),
+                              Text('Edit'),
+                            ],
+                          ),
                         ),
                         const PopupMenuItem(
                           value: 'list',
-                          child: Row(children: [
-                            Icon(Icons.storefront_outlined, size: 20),
-                            SizedBox(width: 12),
-                            Text('Make into listing'),
-                          ]),
+                          child: Row(
+                            children: [
+                              Icon(Icons.storefront_outlined, size: 20),
+                              SizedBox(width: 12),
+                              Text('Make into listing'),
+                            ],
+                          ),
                         ),
                         const PopupMenuDivider(),
                         const PopupMenuItem(
                           value: 'delete',
-                          child: Row(children: [
-                            Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                            SizedBox(width: 12),
-                            Text('Delete', style: TextStyle(color: Colors.red)),
-                          ]),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.delete_outline,
+                                size: 20,
+                                color: Colors.red,
+                              ),
+                              SizedBox(width: 12),
+                              Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -964,9 +1308,10 @@ class _PantryScreenState extends State<PantryScreen>
                 Text(
                   item.name,
                   style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: FreshCycleTheme.textPrimary),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: FreshCycleTheme.textPrimary,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -974,15 +1319,18 @@ class _PantryScreenState extends State<PantryScreen>
                 Text(
                   item.daysLeft,
                   style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: urgencyColor(item.urgency)),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: urgencyColor(item.urgency),
+                  ),
                 ),
                 if (item.cost != null)
                   Text(
                     '₱${item.cost!.toStringAsFixed(2)}',
                     style: const TextStyle(
-                        fontSize: 11, color: FreshCycleTheme.textSecondary),
+                      fontSize: 11,
+                      color: FreshCycleTheme.textSecondary,
+                    ),
                   ),
                 const SizedBox(height: 6),
                 ClipRRect(
@@ -1018,13 +1366,18 @@ class _PantryScreenState extends State<PantryScreen>
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: isHighlighted
-                  ? Color.lerp(FreshCycleTheme.urgencyCriticalBg,
-                      FreshCycleTheme.urgencyCritical.withValues(alpha: 0.15), glow)!
+                  ? Color.lerp(
+                      FreshCycleTheme.urgencyCriticalBg,
+                      FreshCycleTheme.urgencyCritical.withValues(alpha: 0.15),
+                      glow,
+                    )!
                   : FreshCycleTheme.urgencyCriticalBg,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: isHighlighted
-                    ? FreshCycleTheme.urgencyCritical.withValues(alpha: 0.3 + glow * 0.7)
+                    ? FreshCycleTheme.urgencyCritical.withValues(
+                        alpha: 0.3 + glow * 0.7,
+                      )
                     : FreshCycleTheme.urgencyCritical.withValues(alpha: 0.3),
                 width: isHighlighted ? 2 : 0.5,
               ),
@@ -1039,19 +1392,28 @@ class _PantryScreenState extends State<PantryScreen>
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: FreshCycleTheme.urgencyCritical.withValues(alpha: 0.15),
+                        color: FreshCycleTheme.urgencyCritical.withValues(
+                          alpha: 0.15,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(item.categoryIcon,
-                          size: 18, color: FreshCycleTheme.urgencyCritical),
+                      child: Icon(
+                        item.categoryIcon,
+                        size: 18,
+                        color: FreshCycleTheme.urgencyCritical,
+                      ),
                     ),
                     const Spacer(),
                     PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert_rounded,
-                          size: 18, color: FreshCycleTheme.textSecondary),
+                      icon: const Icon(
+                        Icons.more_vert_rounded,
+                        size: 18,
+                        color: FreshCycleTheme.textSecondary,
+                      ),
                       padding: EdgeInsets.zero,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       onSelected: (value) {
                         if (value == 'edit') {
                           _showAddItemSheet(existingItem: item, index: index);
@@ -1062,20 +1424,31 @@ class _PantryScreenState extends State<PantryScreen>
                       itemBuilder: (context) => [
                         const PopupMenuItem(
                           value: 'edit',
-                          child: Row(children: [
-                            Icon(Icons.edit_outlined, size: 20),
-                            SizedBox(width: 12),
-                            Text('Edit'),
-                          ]),
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_outlined, size: 20),
+                              SizedBox(width: 12),
+                              Text('Edit'),
+                            ],
+                          ),
                         ),
                         const PopupMenuDivider(),
                         const PopupMenuItem(
                           value: 'delete',
-                          child: Row(children: [
-                            Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                            SizedBox(width: 12),
-                            Text('Delete', style: TextStyle(color: Colors.red)),
-                          ]),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.delete_outline,
+                                size: 20,
+                                color: Colors.red,
+                              ),
+                              SizedBox(width: 12),
+                              Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -1085,9 +1458,10 @@ class _PantryScreenState extends State<PantryScreen>
                 Text(
                   item.name,
                   style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: FreshCycleTheme.textPrimary),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: FreshCycleTheme.textPrimary,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1095,15 +1469,18 @@ class _PantryScreenState extends State<PantryScreen>
                 const Text(
                   'Expired',
                   style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: FreshCycleTheme.urgencyCritical),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: FreshCycleTheme.urgencyCritical,
+                  ),
                 ),
                 if (item.cost != null)
                   Text(
                     '₱${item.cost!.toStringAsFixed(2)}',
                     style: const TextStyle(
-                        fontSize: 11, color: FreshCycleTheme.textSecondary),
+                      fontSize: 11,
+                      color: FreshCycleTheme.textSecondary,
+                    ),
                   ),
               ],
             ),
@@ -1131,128 +1508,160 @@ class _PantryScreenState extends State<PantryScreen>
             width: 0.5,
           ),
         ),
-            child: Column(
-              children: [
-                ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  leading: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: urgencyBgColor(item.urgency),
-                      borderRadius: BorderRadius.circular(10),
+        child: Column(
+          children: [
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
+              leading: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: urgencyBgColor(item.urgency),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  item.categoryIcon,
+                  color: urgencyColor(item.urgency),
+                ),
+              ),
+              title: Text(
+                item.name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      item.daysLeft,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: urgencyColor(item.urgency),
+                        fontSize: 13,
+                      ),
                     ),
-                    child: Icon(item.categoryIcon,
-                        color: urgencyColor(item.urgency)),
-                  ),
-                  title: Text(item.name,
+                    const Text(
+                      ' • ',
+                      style: TextStyle(color: FreshCycleTheme.textHint),
+                    ),
+                    Text(
+                      item.category,
                       style: const TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 16)),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(
-                          item.daysLeft,
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: urgencyColor(item.urgency),
-                              fontSize: 13),
+                        color: FreshCycleTheme.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (item.cost != null) ...[
+                      const Text(
+                        ' • ',
+                        style: TextStyle(color: FreshCycleTheme.textHint),
+                      ),
+                      Text(
+                        '₱${item.cost!.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: FreshCycleTheme.textSecondary,
+                          fontSize: 12,
                         ),
-                        const Text(' • ',
-                            style: TextStyle(color: FreshCycleTheme.textHint)),
-                        Text(item.category,
-                            style: const TextStyle(
-                                color: FreshCycleTheme.textSecondary,
-                                fontSize: 12)),
-                        if (item.cost != null) ...[
-                          const Text(' • ',
-                              style:
-                                  TextStyle(color: FreshCycleTheme.textHint)),
-                          Text('₱${item.cost!.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                  color: FreshCycleTheme.textSecondary,
-                                  fontSize: 12)),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              trailing: PopupMenuButton<String>(
+                icon: const Icon(
+                  Icons.more_vert_rounded,
+                  color: FreshCycleTheme.textSecondary,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    _showAddItemSheet(existingItem: item, index: index);
+                  } else if (value == 'delete') {
+                    _confirmDelete(item, index);
+                  } else if (value == 'list') {
+                    _convertToListing(item);
+                  }
+                },
+                itemBuilder: (context) {
+                  final today = DateTime(
+                    DateTime.now().year,
+                    DateTime.now().month,
+                    DateTime.now().day,
+                  );
+                  final expiryDay = DateTime(
+                    item.computedExpiryDate.year,
+                    item.computedExpiryDate.month,
+                    item.computedExpiryDate.day,
+                  );
+                  final isExpired = expiryDay.isBefore(today);
+                  return [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 20),
+                          SizedBox(width: 12),
+                          Text('Edit'),
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  trailing: PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert_rounded,
-                        color: FreshCycleTheme.textSecondary),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        _showAddItemSheet(existingItem: item, index: index);
-                      } else if (value == 'delete') {
-                        _confirmDelete(item, index);
-                      } else if (value == 'list') {
-                        _convertToListing(item);
-                      }
-                    },
-                    itemBuilder: (context) {
-                      final today = DateTime(DateTime.now().year,
-                          DateTime.now().month, DateTime.now().day);
-                      final expiryDay = DateTime(
-                          item.computedExpiryDate.year,
-                          item.computedExpiryDate.month,
-                          item.computedExpiryDate.day);
-                      final isExpired = expiryDay.isBefore(today);
-                      return [
-                        const PopupMenuItem(
-                          value: 'edit',
-                          child: Row(children: [
-                            Icon(Icons.edit_outlined, size: 20),
+                    if (!isExpired)
+                      const PopupMenuItem(
+                        value: 'list',
+                        child: Row(
+                          children: [
+                            Icon(Icons.storefront_outlined, size: 20),
                             SizedBox(width: 12),
-                            Text('Edit'),
-                          ]),
+                            Text('Make into listing'),
+                          ],
                         ),
-                        if (!isExpired)
-                          const PopupMenuItem(
-                            value: 'list',
-                            child: Row(children: [
-                              Icon(Icons.storefront_outlined, size: 20),
-                              SizedBox(width: 12),
-                              Text('Make into listing'),
-                            ]),
+                      ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            size: 20,
+                            color: Colors.red,
                           ),
-                        const PopupMenuDivider(),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Row(children: [
-                            Icon(Icons.delete_outline,
-                                size: 20, color: Colors.red),
-                            SizedBox(width: 12),
-                            Text('Delete',
-                                style: TextStyle(color: Colors.red)),
-                          ]),
-                        ),
-                      ];
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 5,
-                      backgroundColor: barColor.withValues(alpha: 0.15),
-                      valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                          SizedBox(width: 12),
+                          Text('Delete', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-              ],
+                  ];
+                },
+              ),
             ),
-          ),
-        );
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 5,
+                  backgroundColor: barColor.withValues(alpha: 0.15),
+                  valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
-// # This function was created using Generative AI
   Widget _buildPantryList() {
     final today = DateTime(
       DateTime.now().year,
@@ -1269,8 +1678,11 @@ class _PantryScreenState extends State<PantryScreen>
     }).toList();
     final expiring = myPantry.where((i) {
       if (expired.contains(i)) return false;
-      final expiry = DateTime(i.computedExpiryDate.year,
-          i.computedExpiryDate.month, i.computedExpiryDate.day);
+      final expiry = DateTime(
+        i.computedExpiryDate.year,
+        i.computedExpiryDate.month,
+        i.computedExpiryDate.day,
+      );
       final daysLeft = expiry.difference(today).inDays;
       return daysLeft <= 3;
     }).toList();
@@ -1553,7 +1965,6 @@ class _PantryScreenState extends State<PantryScreen>
       ],
     );
   }
-
 
   @override
   Widget build(BuildContext context) {

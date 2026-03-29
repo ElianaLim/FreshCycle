@@ -3,11 +3,42 @@ import '../models/listing.dart';
 import '../data/sample_data.dart';
 import '../data/db.dart';
 
+class ListingTransactionState {
+  final String listingId;
+  final String? buyerId;
+  final bool buyerConfirmed;
+  final bool completed;
+  final double feePercent;
+  final double? agreedPrice;
+
+  const ListingTransactionState({
+    required this.listingId,
+    required this.buyerId,
+    required this.buyerConfirmed,
+    required this.completed,
+    required this.feePercent,
+    required this.agreedPrice,
+  });
+
+  factory ListingTransactionState.fromMap(Map<String, dynamic> map) {
+    return ListingTransactionState(
+      listingId: map['listing_id'] as String,
+      buyerId: map['buyer_id'] as String?,
+      buyerConfirmed: map['buyer_confirmed'] as bool? ?? false,
+      completed: map['completed'] as bool? ?? false,
+      feePercent: (map['fee_percent'] as num?)?.toDouble() ?? 0.02,
+      agreedPrice: (map['agreed_price'] as num?)?.toDouble(),
+    );
+  }
+}
+
 class ListingProvider extends ChangeNotifier {
   List<Listing> _listings = List.from(sampleListings);
   List<Listing> _requests = List.from(sampleRequests);
   final Set<String> _completedListingIds = <String>{};
   final Map<String, String> _completedListingSellers = <String, String>{};
+  final Map<String, ListingTransactionState> _transactionStates =
+      <String, ListingTransactionState>{};
   bool _isLoading = false;
 
   List<Listing> get listings => _listings;
@@ -77,14 +108,18 @@ class ListingProvider extends ChangeNotifier {
       if (row['expiry_date'] != null) {
         expiryDate = DateTime.tryParse(row['expiry_date'] as String);
       }
-      
+
       UrgencyLevel? computedUrgency;
       if (expiryDate != null) {
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
-        final expiry = DateTime(expiryDate.year, expiryDate.month, expiryDate.day);
+        final expiry = DateTime(
+          expiryDate.year,
+          expiryDate.month,
+          expiryDate.day,
+        );
         final daysLeft = expiry.difference(today).inDays;
-        
+
         if (daysLeft <= 1) {
           computedUrgency = UrgencyLevel.critical;
         } else if (daysLeft <= 2) {
@@ -97,7 +132,9 @@ class ListingProvider extends ChangeNotifier {
       return Listing(
         id: row['id'] as String,
         sellerId: sellerId,
-        type: typeStr == 'requesting' ? ListingType.requesting : ListingType.selling,
+        type: typeStr == 'requesting'
+            ? ListingType.requesting
+            : ListingType.selling,
         title: row['title'] as String? ?? '',
         description: row['description'] as String? ?? '',
         category: row['category'] as String? ?? 'Uncategorized',
@@ -132,6 +169,17 @@ class ListingProvider extends ChangeNotifier {
 
   bool isListingCompleted(String listingId) =>
       _completedListingIds.contains(listingId);
+
+  ListingTransactionState? transactionStateForListing(String listingId) {
+    return _transactionStates[listingId];
+  }
+
+  bool isBuyerConfirmedForListing(String listingId, {String? buyerId}) {
+    final tx = _transactionStates[listingId];
+    if (tx == null || !tx.buyerConfirmed) return false;
+    if (buyerId == null) return true;
+    return tx.buyerId == buyerId;
+  }
 
   bool isSellerForListing(String listingId, String? userId) {
     if (userId == null) return false;
@@ -196,15 +244,79 @@ class ListingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool completeListingTransaction(String listingId) {
+  Future<void> refreshTransactionState(String listingId) async {
+    try {
+      final tx = await DB.getListingTransaction(listingId);
+      if (tx == null) return;
+      _transactionStates[listingId] = ListingTransactionState.fromMap(tx);
+      notifyListeners();
+    } catch (e) {
+      print('Failed to refresh transaction state: $e');
+    }
+  }
+
+  Future<bool> confirmBuyerPurchaseIntent({
+    required String listingId,
+    required String buyerId,
+    required String sellerId,
+    required double? agreedPrice,
+    double feePercent = 0.02,
+  }) async {
+    try {
+      final tx = await DB.upsertListingTransaction(
+        listingId: listingId,
+        buyerId: buyerId,
+        sellerId: sellerId,
+        buyerConfirmed: true,
+        completed: false,
+        feePercent: feePercent,
+        agreedPrice: agreedPrice,
+      );
+
+      if (tx == null) return false;
+      _transactionStates[listingId] = ListingTransactionState.fromMap(tx);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      print('Failed to confirm buyer purchase intent: $e');
+      return false;
+    }
+  }
+
+  Future<bool> completeListingTransaction(
+    String listingId, {
+    required String sellerId,
+  }) async {
     if (_completedListingIds.contains(listingId)) return false;
 
     final index = _listings.indexWhere((l) => l.id == listingId);
     if (index == -1) return false;
 
     final listing = _listings[index];
+    final tx = _transactionStates[listingId];
+    if (tx == null || !tx.buyerConfirmed || tx.buyerId == null) {
+      return false;
+    }
+
+    if (listing.seller.id != sellerId) return false;
+
+    final didPersist = await DB.completeListingTransaction(
+      listingId: listingId,
+      sellerId: sellerId,
+      buyerId: tx.buyerId!,
+    );
+    if (!didPersist) return false;
+
     _completedListingSellers[listingId] = listing.seller.id;
     _completedListingIds.add(listingId);
+    _transactionStates[listingId] = ListingTransactionState(
+      listingId: listingId,
+      buyerId: tx.buyerId,
+      buyerConfirmed: true,
+      completed: true,
+      feePercent: tx.feePercent,
+      agreedPrice: tx.agreedPrice,
+    );
     _listings.removeAt(index);
     notifyListeners();
     return true;

@@ -53,7 +53,8 @@ class ListingDetailScreen extends StatelessWidget {
       Navigator.pop(context);
     }
   }
-// # This function was created using Generative AI
+
+  // # This function was created using Generative AI
   @override
   Widget build(BuildContext context) {
     final listingProvider = context.watch<ListingProvider>();
@@ -316,7 +317,7 @@ class ListingDetailScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ],                  
+                  ],
 
                   if (!isRequest) ...[
                     const SizedBox(height: 20),
@@ -608,6 +609,12 @@ class ListingDetailScreen extends StatelessWidget {
   Widget _buildPlaceholder(String category) {
     dynamic icon;
     switch (category.toLowerCase()) {
+      case 'perishable':
+        icon = Icons.schedule_rounded;
+        break;
+      case 'non-perishable':
+        icon = Icons.inventory_2_outlined;
+        break;
       case 'produce':
         icon = Icons.eco_outlined;
         break;

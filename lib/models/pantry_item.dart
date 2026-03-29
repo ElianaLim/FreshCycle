@@ -29,15 +29,27 @@ class PantryItem {
 
   DateTime get computedExpiryDate {
     if (expiryType == ExpiryType.relative) {
-      final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+      final today = DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+      );
       return today.add(Duration(days: relativeDays));
     }
     return expiryDate;
   }
 
   String get daysLeft {
-    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-    final expiry = DateTime(computedExpiryDate.year, computedExpiryDate.month, computedExpiryDate.day);
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
+    final expiry = DateTime(
+      computedExpiryDate.year,
+      computedExpiryDate.month,
+      computedExpiryDate.day,
+    );
     final diff = expiry.difference(today).inDays;
     if (diff < 0) return 'Expired';
     if (diff == 0) return 'Expires today';
@@ -46,20 +58,24 @@ class PantryItem {
   }
 
   dynamic get categoryIcon {
-    switch (category) {
-      case 'Produce':
+    switch (category.toLowerCase()) {
+      case 'perishable':
+        return Icons.schedule_rounded;
+      case 'non-perishable':
+        return Icons.inventory_2_outlined;
+      case 'produce':
         return Icons.eco_outlined;
-      case 'Dairy':
+      case 'dairy':
         return HugeIcons.strokeRoundedMilkBottle;
-      case 'Bakery':
+      case 'bakery':
         return Icons.bakery_dining_outlined;
-      case 'Meat & fish':
+      case 'meat & fish':
         return Icons.set_meal_outlined;
-      case 'Meals & leftovers':
+      case 'meals & leftovers':
         return Icons.lunch_dining_outlined;
-      case 'Snacks':
+      case 'snacks':
         return Icons.cookie_outlined;
-      case 'Beverages':
+      case 'beverages':
         return Icons.local_drink_outlined;
       default:
         return Icons.inventory_2_outlined;
@@ -69,7 +85,9 @@ class PantryItem {
   /// Build from a Supabase row map.
   factory PantryItem.fromMap(Map<String, dynamic> map) {
     final expiryTypeStr = map['expiry_type'] as String? ?? 'absolute';
-    final expiryType = expiryTypeStr == 'relative' ? ExpiryType.relative : ExpiryType.absolute;
+    final expiryType = expiryTypeStr == 'relative'
+        ? ExpiryType.relative
+        : ExpiryType.absolute;
 
     final urgencyStr = map['urgency'] as String? ?? 'safe';
     final urgency = _urgencyFromString(urgencyStr);
@@ -94,7 +112,9 @@ class PantryItem {
       if (userId != null) 'user_id': userId,
       'name': name,
       'category': category,
-      'expiry_type': expiryType == ExpiryType.relative ? 'relative' : 'absolute',
+      'expiry_type': expiryType == ExpiryType.relative
+          ? 'relative'
+          : 'absolute',
       'relative_days': relativeDays,
       'expiry_date': computedExpiryDate.toIso8601String(),
       'cost': cost,

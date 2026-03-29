@@ -22,7 +22,7 @@ class _PostRequestScreenState extends State<PostRequestScreen> {
   final _noteController = TextEditingController();
   final _budgetController = TextEditingController();
 
-  String _selectedCategory = 'Produce';
+  String _selectedCategory = 'Perishable';
   String _fulfillmentPreference = 'Pickup';
 
   List<String> get _categories =>

@@ -218,7 +218,6 @@ class DB {
     return 'U';
   }
 
-
   /// Get all conversations for a user
   static Future<List<Map<String, dynamic>>> getConversations(
     String userId,
@@ -270,7 +269,7 @@ class DB {
     }
   }
 
-  /// Send a message 
+  /// Send a message
   static Future<Map<String, dynamic>?> sendMessage({
     required String conversationId,
     required String senderId,
@@ -406,7 +405,6 @@ class DB {
     }
   }
 
-
   /// Get all notifications for a user
   static Future<List<Map<String, dynamic>>> getNotifications(
     String userId,
@@ -513,7 +511,6 @@ class DB {
     }
   }
 
-
   /// Get all listings from database (selling type)
   static Future<List<Map<String, dynamic>>> getListings() async {
     try {
@@ -545,7 +542,9 @@ class DB {
   }
 
   /// Get listings by seller_id
-  static Future<List<Map<String, dynamic>>> getListingsBySeller(String sellerId) async {
+  static Future<List<Map<String, dynamic>>> getListingsBySeller(
+    String sellerId,
+  ) async {
     try {
       final response = await _client!
           .from('listings')
@@ -640,6 +639,87 @@ class DB {
     );
   }
 
+  /// Get listing transaction state for a listing
+  static Future<Map<String, dynamic>?> getListingTransaction(
+    String listingId,
+  ) async {
+    try {
+      final response = await _client!
+          .from('listing_transactions')
+          .select()
+          .eq('listing_id', listingId)
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      print('Get listing transaction error: $e');
+      return null;
+    }
+  }
+
+  /// Create or update listing transaction state
+  static Future<Map<String, dynamic>?> upsertListingTransaction({
+    required String listingId,
+    required String buyerId,
+    required String sellerId,
+    required bool buyerConfirmed,
+    required bool completed,
+    required double feePercent,
+    double? agreedPrice,
+  }) async {
+    try {
+      final now = DateTime.now().toIso8601String();
+      await _client!.from('listing_transactions').upsert({
+        'listing_id': listingId,
+        'buyer_id': buyerId,
+        'seller_id': sellerId,
+        'buyer_confirmed': buyerConfirmed,
+        'completed': completed,
+        'fee_percent': feePercent,
+        'agreed_price': agreedPrice,
+        'updated_at': now,
+      }, onConflict: 'listing_id');
+
+      return await getListingTransaction(listingId);
+    } catch (e) {
+      print('Upsert listing transaction error: $e');
+      return null;
+    }
+  }
+
+  /// Finalize listing transaction and close listing
+  static Future<bool> completeListingTransaction({
+    required String listingId,
+    required String sellerId,
+    required String buyerId,
+  }) async {
+    try {
+      final now = DateTime.now().toIso8601String();
+
+      await _client!
+          .from('listing_transactions')
+          .update({
+            'completed': true,
+            'seller_confirmed_at': now,
+            'updated_at': now,
+          })
+          .eq('listing_id', listingId)
+          .eq('seller_id', sellerId)
+          .eq('buyer_id', buyerId)
+          .eq('buyer_confirmed', true);
+
+      await _client!
+          .from('listings')
+          .delete()
+          .eq('id', listingId)
+          .eq('seller_id', sellerId);
+
+      return true;
+    } catch (e) {
+      print('Complete listing transaction error: $e');
+      return false;
+    }
+  }
+
   /// Create notification when someone makes an offer
   static Future<void> notifyOfferReceived({
     required String sellerId,
@@ -687,7 +767,6 @@ class DB {
       relatedId: listingId,
     );
   }
-
 
   static const _guestNotifKey = 'guest_notifications';
 
@@ -790,7 +869,6 @@ class DB {
       print('Pantry expiry notification error: $e');
     }
   }
-
 
   /// Get location settings for a device
   static Future<Map<String, dynamic>?> getLocationSettings(

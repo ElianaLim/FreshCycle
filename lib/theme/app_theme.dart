@@ -32,6 +32,8 @@ class FreshCycleTheme {
   // Shared food categories
   static const List<String> foodCategories = [
     'All',
+    'Perishable',
+    'Non-Perishable',
     'Produce',
     'Dairy',
     'Bakery',
@@ -61,61 +63,64 @@ class FreshCycleTheme {
   ];
 
   static ThemeData get theme => ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: primary,
-          brightness: Brightness.light,
-        ),
-        scaffoldBackgroundColor: surfaceGray,
-        fontFamily: 'SF Pro Display',
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          foregroundColor: textPrimary,
-          elevation: 0,
-          scrolledUnderElevation: 0.5,
-          centerTitle: false,
-          titleTextStyle: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: textPrimary,
-            letterSpacing: -0.3,
-          ),
-        ),
-        tabBarTheme: const TabBarThemeData(
-          labelColor: primary,
-          unselectedLabelColor: textSecondary,
-          indicatorColor: primary,
-          indicatorSize: TabBarIndicatorSize.tab,
-          labelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-          unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w400, fontSize: 13),
-        ),
-        chipTheme: ChipThemeData(
-          backgroundColor: Colors.white,
-          selectedColor: primaryLight,
-          side: const BorderSide(color: borderColor, width: 0.5),
-          labelStyle: const TextStyle(fontSize: 12, color: textSecondary),
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: borderColor, width: 0.5),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: borderColor, width: 0.5),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: primary, width: 1),
-          ),
-          hintStyle: const TextStyle(color: textHint, fontSize: 14),
-        ),
-      );
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: primary,
+      brightness: Brightness.light,
+    ),
+    scaffoldBackgroundColor: surfaceGray,
+    fontFamily: 'SF Pro Display',
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.white,
+      foregroundColor: textPrimary,
+      elevation: 0,
+      scrolledUnderElevation: 0.5,
+      centerTitle: false,
+      titleTextStyle: TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: textPrimary,
+        letterSpacing: -0.3,
+      ),
+    ),
+    tabBarTheme: const TabBarThemeData(
+      labelColor: primary,
+      unselectedLabelColor: textSecondary,
+      indicatorColor: primary,
+      indicatorSize: TabBarIndicatorSize.tab,
+      labelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+      unselectedLabelStyle: TextStyle(
+        fontWeight: FontWeight.w400,
+        fontSize: 13,
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: Colors.white,
+      selectedColor: primaryLight,
+      side: const BorderSide(color: borderColor, width: 0.5),
+      labelStyle: const TextStyle(fontSize: 12, color: textSecondary),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: borderColor, width: 0.5),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: borderColor, width: 0.5),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: primary, width: 1),
+      ),
+      hintStyle: const TextStyle(color: textHint, fontSize: 14),
+    ),
+  );
 }
 
 Color urgencyColor(dynamic urgency) {

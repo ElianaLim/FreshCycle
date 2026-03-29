@@ -72,7 +72,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
     try {
       final deviceId = await DB.getDeviceId();
       final settings = await DB.getLocationSettings(deviceId);
-      
+
       if (settings != null && mounted) {
         setState(() {
           _currentLocation = settings['location_name'] ?? 'Select Location';
@@ -96,7 +96,11 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
     }
   }
 
-  Future<void> _saveLocationSettings(String location, LatLng latLng, double proximity) async {
+  Future<void> _saveLocationSettings(
+    String location,
+    LatLng latLng,
+    double proximity,
+  ) async {
     try {
       final deviceId = await DB.getDeviceId();
       await DB.saveLocationSettings(
@@ -374,8 +378,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Confirm purchase'),
+        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
         content: Text(
-          'Buy "${listing.title}" for ₱${(listing.price ?? 0).toStringAsFixed(0)}?',
+          'Price: P${(listing.price ?? 0).toStringAsFixed(2)}\n'
+          'Transaction fee (2%): P${((listing.price ?? 0) * 0.02).toStringAsFixed(2)}\n'
+          'Total: P${((listing.price ?? 0) * 1.02).toStringAsFixed(2)}\n\n'
+          'Proceed to buyer confirmation chat for "${listing.title}"?',
         ),
         actions: [
           TextButton(
@@ -1145,37 +1153,37 @@ class _MessageSheetState extends State<_MessageSheet> {
               runSpacing: 8,
               children:
                   [
-                    'Is this still available?',
-                    'Can I pick up today?',
-                    'What time works for pickup?',
-                  ]
-                  .map(
-                    (msg) => GestureDetector(
-                      onTap: () => _sendMessage(msg),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: FreshCycleTheme.primaryLight,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: FreshCycleTheme.primary,
-                            width: 0.5,
+                        'Is this still available?',
+                        'Can I pick up today?',
+                        'What time works for pickup?',
+                      ]
+                      .map(
+                        (msg) => GestureDetector(
+                          onTap: () => _sendMessage(msg),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: FreshCycleTheme.primaryLight,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: FreshCycleTheme.primary,
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              msg,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: FreshCycleTheme.primaryDark,
+                              ),
+                            ),
                           ),
                         ),
-                        child: Text(
-                          msg,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: FreshCycleTheme.primaryDark,
-                          ),
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
+                      )
+                      .toList(),
             ),
             const SizedBox(height: 16),
             Row(

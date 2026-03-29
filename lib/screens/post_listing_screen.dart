@@ -10,11 +10,10 @@ import '../models/listing.dart';
 import '../data/db.dart';
 import 'profile_screen.dart';
 
-
 class PostListingScreen extends StatefulWidget {
   final Listing? existingListing;
 
-  const PostListingScreen({super.key, this.existingListing}); 
+  const PostListingScreen({super.key, this.existingListing});
 
   @override
   State<PostListingScreen> createState() => _PostListingScreenState();
@@ -33,6 +32,9 @@ class _PostListingScreenState extends State<PostListingScreen> {
   final _ogPriceController = TextEditingController();
   final _locationController = TextEditingController();
 
+  List<String> get _categories =>
+      FreshCycleTheme.foodCategories.where((c) => c != 'All').toList();
+
   @override
   void initState() {
     super.initState();
@@ -47,10 +49,12 @@ class _PostListingScreenState extends State<PostListingScreen> {
       _expiryDate = l.expiryDate;
       _isFree = l.isFree;
       _allowDelivery = l.allowDelivery;
-      
+
       if (l.images != null) {
         _images.addAll(l.images!.map((path) => File(path)));
       }
+    } else {
+      _selectedCategory = _categories.first;
     }
   }
 
@@ -72,17 +76,23 @@ class _PostListingScreenState extends State<PostListingScreen> {
           TextButton(
             onPressed: () async {
               final authUser = context.read<AuthProvider>().user;
-              
+
               String sellerId;
-              if (isEditing && widget.existingListing!.sellerId != null && widget.existingListing!.sellerId!.isNotEmpty) {
+              if (isEditing &&
+                  widget.existingListing!.sellerId != null &&
+                  widget.existingListing!.sellerId!.isNotEmpty) {
                 sellerId = widget.existingListing!.sellerId!;
-              } else if (isEditing && widget.existingListing!.seller.id.isNotEmpty) {
+              } else if (isEditing &&
+                  widget.existingListing!.seller.id.isNotEmpty) {
                 sellerId = widget.existingListing!.seller.id;
               } else {
                 sellerId = authUser?.id ?? '';
               }
-              
-              final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', caseSensitive: false);
+
+              final uuidRegex = RegExp(
+                r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                caseSensitive: false,
+              );
               if (sellerId.isEmpty || !uuidRegex.hasMatch(sellerId)) {
                 // Redirect to profile screen for login
                 Navigator.push(
@@ -97,13 +107,17 @@ class _PostListingScreenState extends State<PostListingScreen> {
                 sellerId: sellerId,
                 type: 'selling',
                 title: _titleController.text,
-                description: _descController.text.isNotEmpty ? _descController.text : null,
-                category: _selectedCategory ?? 'General',
+                description: _descController.text.isNotEmpty
+                    ? _descController.text
+                    : null,
+                category: _selectedCategory ?? 'Other',
                 price: _isFree ? 0 : double.tryParse(_priceController.text),
                 originalPrice: double.tryParse(_ogPriceController.text),
                 expiryDate: _expiryDate,
                 urgency: 'safe',
-                note: _locationController.text.isNotEmpty ? _locationController.text : null,
+                note: _locationController.text.isNotEmpty
+                    ? _locationController.text
+                    : null,
                 tags: [],
               );
 
@@ -114,7 +128,7 @@ class _PostListingScreenState extends State<PostListingScreen> {
                 type: ListingType.selling,
                 title: _titleController.text,
                 description: _descController.text,
-                category: _selectedCategory ?? 'General',
+                category: _selectedCategory ?? 'Other',
                 price: _isFree ? 0 : double.tryParse(_priceController.text),
                 originalPrice: double.tryParse(_ogPriceController.text),
                 expiryDate: _expiryDate,
@@ -208,7 +222,7 @@ class _PostListingScreenState extends State<PostListingScreen> {
                   DropdownButtonFormField<String>(
                     value: _selectedCategory,
                     decoration: const InputDecoration(labelText: 'Category*'),
-                    items: ['Produce', 'Dairy', 'Bakery', 'Meat & fish', 'Meals & leftovers', 'Snacks', 'Beverages', 'Other']
+                    items: _categories
                         .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                         .toList(),
                     onChanged: (v) => setState(() => _selectedCategory = v),

@@ -5,7 +5,10 @@ import '../models/recipe.dart';
 import '../models/pantry_item.dart';
 
 class AiRecipeService {
-  static Future<Recipe> generateRecipeFromPantry(List<PantryItem> items, bool expiringOnly) async {
+  static Future<Recipe> generateRecipeFromPantry(
+    List<PantryItem> items,
+    bool expiringOnly,
+  ) async {
     final apiKey = dotenv.env['GEMINI_API_KEY'];
     if (apiKey == null || apiKey.isEmpty) {
       throw Exception('Gemini API key not found in .env file');
@@ -21,7 +24,8 @@ class AiRecipeService {
 
     final itemNames = items.map((e) => e.name).join(', ');
 
-    final prompt = '''
+    final prompt =
+        '''
       You are an expert chef. Create a delicious recipe using some or all of these ingredients: $itemNames. Note that you don't have to use evverything, look and see what ingredient best complements with one another.
       However if $expiringOnly is true, prioritize using ingredients that are earliest to expire which is the first items in the list
       You can assume the user has basic cooking necessities like oil, salt, pepper, sugar, garlic, and water if they do not have so, recommend for them to make a request in the Marketplace tap in the app.
@@ -33,17 +37,20 @@ class AiRecipeService {
         "prepTimeMinutes": 10,
         "cookTimeMinutes": 20,
         "servings": 2,
+        "approxCalories": 450,
         "ingredients": ["1 cup ingredient name", "Basic necessities (oil, salt)"],
         "instructions": ["Step 1", "Step 2"],
         "tags": ["Quick", "Zero Waste"],
         "difficulty": "Easy" // Must be "Easy", "Medium", or "Hard"
       }
+
+      Include a realistic approximate calorie estimate for the full recipe in "approxCalories".
     ''';
 
     try {
       final response = await model.generateContent([Content.text(prompt)]);
       final String responseText = response.text ?? '{}';
-      
+
       final Map<String, dynamic> jsonMap = jsonDecode(responseText);
 
       return Recipe(
@@ -51,7 +58,8 @@ class AiRecipeService {
         title: jsonMap['title'] ?? 'AI Surprise',
         description: jsonMap['description'] ?? 'A delicious AI-generated meal.',
         // Use a placeholder image or a generic food image URL
-        imageUrl: 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?q=80&w=800&auto=format&fit=crop',
+        imageUrl:
+            'https://images.unsplash.com/photo-1495521821757-a1efb6729352?q=80&w=800&auto=format&fit=crop',
         prepTimeMinutes: jsonMap['prepTimeMinutes'] ?? 10,
         cookTimeMinutes: jsonMap['cookTimeMinutes'] ?? 20,
         servings: jsonMap['servings'] ?? 2,

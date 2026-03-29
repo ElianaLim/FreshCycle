@@ -8,7 +8,7 @@ final List<Listing> sampleListings = [
     title: 'Kangkong (water spinach)',
     description:
         '~800g bundle, freshly harvested this morning. Perfect for sautéing or soup.',
-    category: 'Produce',
+    category: 'Perishable',
     price: 15,
     originalPrice: 40,
     images: [
@@ -22,7 +22,7 @@ final List<Listing> sampleListings = [
     allowDelivery: true,
     dealLocation: 'Krus na Ligas waiting shed',
     seller: const SellerProfile(
-      id: 'd29621f3-3d4c-4376-b1d3-1920ff706f12',
+      id: 'a2091c43-22cd-4fcc-a38a-74dce0c2e1df',
       name: 'Maria R.',
       initials: 'MR',
       rating: 4.9,
@@ -30,14 +30,14 @@ final List<Listing> sampleListings = [
       isVerified: true,
       barangay: 'Diliman',
     ),
-    tags: ['produce', 'vegetables', 'leafy'],
+    tags: ['perishable', 'vegetables', 'leafy'],
   ),
   Listing(
     id: '2',
     type: ListingType.selling,
     title: 'Greek yogurt (plain)',
     description: '2 × 500g tubs, unopened. Bought too many last grocery run.',
-    category: 'Dairy',
+    category: 'Perishable',
     price: 80,
     originalPrice: 180,
     images: [
@@ -59,7 +59,7 @@ final List<Listing> sampleListings = [
       isVerified: false,
       barangay: 'UP Campus',
     ),
-    tags: ['dairy', 'yogurt', 'protein'],
+    tags: ['perishable', 'dairy', 'protein'],
   ),
   Listing(
     id: '3',
@@ -67,10 +67,12 @@ final List<Listing> sampleListings = [
     title: 'Sourdough loaf',
     description:
         'Whole loaf, baked yesterday. Artisan bakery — still very fresh.',
-    category: 'Bakery',
+    category: 'Perishable',
     price: 60,
     originalPrice: 120,
-    images: ['https://tse2.mm.bing.net/th/id/OIP.i5OrfWNvqJwb2OvZXXqRcQHaH0?rs=1&pid=ImgDetMain&o=7&rm=3'], // Added Image
+    images: [
+      'https://tse2.mm.bing.net/th/id/OIP.i5OrfWNvqJwb2OvZXXqRcQHaH0?rs=1&pid=ImgDetMain&o=7&rm=3',
+    ], // Added Image
     expiryDate: DateTime.now().add(const Duration(days: 3)),
     postedAt: DateTime.now().subtract(const Duration(hours: 3)),
     distanceKm: 1.1,
@@ -87,7 +89,7 @@ final List<Listing> sampleListings = [
       isVerified: true,
       barangay: 'Sikatuna Village',
     ),
-    tags: ['bakery', 'bread', 'artisan'],
+    tags: ['perishable', 'bread', 'artisan'],
   ),
   Listing(
     id: '4',
@@ -95,7 +97,7 @@ final List<Listing> sampleListings = [
     title: 'Bangus fillets (frozen)',
     description:
         '4 pieces, individually vacuum-sealed. From Dagupan. Best before next week.',
-    category: 'Meat & Fish',
+    category: 'Non-Perishable',
     price: 120,
     originalPrice: 220,
     images: [],
@@ -115,7 +117,7 @@ final List<Listing> sampleListings = [
       isVerified: true,
       barangay: 'Krus na Ligas',
     ),
-    tags: ['fish', 'frozen', 'protein'],
+    tags: ['non-perishable', 'frozen', 'protein'],
   ),
 ];
 
@@ -125,7 +127,7 @@ final List<Listing> sampleRequests = [
     type: ListingType.requesting,
     title: 'Looking for: ripe tomatoes',
     description: '~500g needed, any near-ripe batch is okay.',
-    category: 'Produce',
+    category: 'Perishable',
     price: 40,
     postedAt: DateTime.now().subtract(const Duration(hours: 1)),
     distanceKm: 0.4,
@@ -143,14 +145,14 @@ final List<Listing> sampleRequests = [
       isVerified: false,
       barangay: 'Diliman',
     ),
-    tags: ['produce', 'tomatoes'],
+    tags: ['perishable', 'tomatoes'],
   ),
   Listing(
     id: 'r2',
     type: ListingType.requesting,
     title: 'Looking for: garlic',
     description: '1 to 2 bulbs, any brand, preferably fresh native.',
-    category: 'Produce',
+    category: 'Non-Perishable',
     price: 30,
     postedAt: DateTime.now().subtract(const Duration(hours: 3)),
     distanceKm: 0.9,
@@ -167,14 +169,14 @@ final List<Listing> sampleRequests = [
       isVerified: false,
       barangay: 'Teachers Village',
     ),
-    tags: ['garlic', 'produce'],
+    tags: ['garlic', 'non-perishable'],
   ),
   Listing(
     id: 'r3',
     type: ListingType.requesting,
     title: 'Looking for: eggs (any qty)',
     description: 'Any quantity is fine, free-range preferred.',
-    category: 'Produce',
+    category: 'Perishable',
     price: 120,
     postedAt: DateTime.now().subtract(const Duration(hours: 5)),
     distanceKm: 1.4,
@@ -191,7 +193,7 @@ final List<Listing> sampleRequests = [
       isVerified: true,
       barangay: 'Batong Malake',
     ),
-    tags: ['eggs', 'dairy'],
+    tags: ['eggs', 'perishable'],
   ),
 ];
 
@@ -199,7 +201,7 @@ final List<Conversation> sampleConversations = [
   // --- Listing context ---
   Conversation(
     id: 'c1',
-    participantId: 'd29621f3-3d4c-4376-b1d3-1920ff706f12',
+    participantId: 'a2091c43-22cd-4fcc-a38a-74dce0c2e1df',
     participantName: 'Maria R.',
     participantInitials: 'MR',
     participantIsVerified: true,
