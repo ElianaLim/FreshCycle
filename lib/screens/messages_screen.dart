@@ -686,40 +686,45 @@ class ChatScreenState extends State<ChatScreen> {
   Future<void> _confirmBuyerPurchase() async {
     final listingId = widget.conversation.relatedListingId;
     if (listingId == null || _isBuyerConfirming) return;
+    
+    if (widget.currentUserId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in as a buyer first.')),
+        );
+      }
+      return;
+    }
 
     final listingProvider = context.read<ListingProvider>();
+    final txState = listingProvider.transactionStateForListing(listingId);
+    
+    if (txState?.buyerConfirmed == true && txState?.buyerId == widget.currentUserId) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You already confirmed this purchase.')),
+        );
+      }
+      return;
+    }
+    
+    if (txState?.buyerConfirmed == true && txState?.buyerId != widget.currentUserId) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This listing is already reserved by another buyer.'),
+          ),
+        );
+      }
+      return;
+    }
+
     final listing = listingProvider.listings.where((l) => l.id == listingId);
     final resolved = listing.isNotEmpty ? listing.first : null;
-    final basePrice = resolved?.price ?? 0;
-    final fee = basePrice * 0.02;
-    final total = basePrice + fee;
-
-    final shouldConfirm = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Confirm purchase'),
-        content: Text(
-          'Price: P${basePrice.toStringAsFixed(2)}\n'
-          'Transaction fee (2%): P${fee.toStringAsFixed(2)}\n'
-          'Total: P${total.toStringAsFixed(2)}\n\n'
-          'By confirming, the seller will be allowed to finalize this transaction.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Confirm Buy'),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldConfirm != true || !mounted) return;
 
     setState(() => _isBuyerConfirming = true);
+    
+    // Step 2 of Commitment: Immediately confirm since fee transparency was handled in Marketplace dialog
     final confirmed = await listingProvider.confirmBuyerPurchaseIntent(
       listingId: listingId,
       buyerId: widget.currentUserId,
@@ -732,15 +737,12 @@ class ChatScreenState extends State<ChatScreen> {
       final messagesProvider = context.read<MessagesProvider>();
       await messagesProvider.sendMessage(
         conversationId: widget.conversation.id,
-        text:
-            '[BUYER_CONFIRMED] I confirm this purchase. I understand there is a 2% transaction fee.',
+        text: '[BUYER_CONFIRMED] I confirm this purchase. I understand there is a 2% transaction fee.',
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Purchase confirmed. Waiting for seller to complete.',
-            ),
+            content: Text('Purchase confirmed. Waiting for seller to complete.'),
           ),
         );
       }
@@ -867,6 +869,15 @@ class ChatScreenState extends State<ChatScreen> {
         txState != null &&
         txState.buyerConfirmed &&
         txState.buyerId == c.participantId;
+    final buyerConfirmedByCurrentUser =
+        txState != null &&
+        txState.buyerConfirmed &&
+        txState.buyerId == widget.currentUserId;
+    final buyerConfirmedByAnotherUser =
+        txState != null &&
+        txState.buyerConfirmed &&
+        txState.buyerId != null &&
+        txState.buyerId != widget.currentUserId;
     final isBuyer = !isSeller;
 
     return Padding(
@@ -931,8 +942,10 @@ class ChatScreenState extends State<ChatScreen> {
                           ? 'Transaction completed'
                           : isSeller && !isBuyerConfirmedForThisChat
                           ? 'Waiting for buyer confirmation'
-                          : isBuyer && txState?.buyerConfirmed == true
+                          : isBuyer && buyerConfirmedByCurrentUser
                           ? 'Purchase confirmed. Waiting for seller.'
+                          : isBuyer && buyerConfirmedByAnotherUser
+                          ? 'Reserved by another buyer'
                           : resolved?.price != null
                           ? '₱${resolved!.price!.toStringAsFixed(0)}'
                           : 'Tap to view details',
@@ -950,7 +963,9 @@ class ChatScreenState extends State<ChatScreen> {
               if (isBuyer && !isCompleted)
                 FilledButton(
                   onPressed:
-                      (txState?.buyerConfirmed == true || _isBuyerConfirming)
+                      (buyerConfirmedByCurrentUser ||
+                          buyerConfirmedByAnotherUser ||
+                          _isBuyerConfirming)
                       ? null
                       : _confirmBuyerPurchase,
                   style: FilledButton.styleFrom(
@@ -970,8 +985,10 @@ class ChatScreenState extends State<ChatScreen> {
                           ),
                         )
                       : Text(
-                          txState?.buyerConfirmed == true
+                          buyerConfirmedByCurrentUser
                               ? 'Confirmed'
+                              : buyerConfirmedByAnotherUser
+                              ? 'Reserved'
                               : 'Confirm Buy',
                           style: const TextStyle(fontSize: 11),
                         ),
