@@ -1,6 +1,4 @@
 enum ListingType { selling, requesting }
-
-
 enum UrgencyLevel { safe, soon, critical }
 
 class SellerProfile {
@@ -34,13 +32,12 @@ class Listing {
   final double? originalPrice;
   final DateTime? expiryDate;
   final DateTime postedAt;
-  final UrgencyLevel urgency;
+  final UrgencyLevel? urgency;
   final SellerProfile seller;
   final int? offerCount;
   final String? note;
   final List<String> tags;
 
-  // App-specific runtime fields (not persisted to DB)
   final double distanceKm;
   final List<String>? images;
   final bool isFree;
@@ -59,7 +56,7 @@ class Listing {
     this.originalPrice,
     this.expiryDate,
     required this.postedAt,
-    required this.urgency,
+    this.urgency,
     required this.seller,
     this.offerCount,
     this.note,
@@ -72,7 +69,6 @@ class Listing {
     this.isSaved = false,
   });
 
-  /// Creates a Listing from Supabase database row
   factory Listing.fromDb({
     required String id,
     required String? sellerId,
@@ -84,7 +80,7 @@ class Listing {
     double? originalPrice,
     DateTime? expiryDate,
     required DateTime postedAt,
-    required UrgencyLevel urgency,
+    UrgencyLevel? urgency,
     int? offerCount,
     String? note,
     List<String>? tags,
@@ -169,14 +165,30 @@ class Listing {
   }
 
   String get urgencyLabel {
-    switch (urgency) {
-      case UrgencyLevel.critical:
-        return 'Expires tomorrow';
-      case UrgencyLevel.soon:
-        return 'Expires in 2 days';
-      case UrgencyLevel.safe:
-        return '3+ days left';
-    }
+    if (expiryDate == null) return '3+ days left';
+    
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final expiry = DateTime(expiryDate!.year, expiryDate!.month, expiryDate!.day);
+    final daysLeft = expiry.difference(today).inDays;
+    
+    if (daysLeft <= 0) return 'Expired';
+    if (daysLeft == 1) return 'Expires tomorrow';
+    if (daysLeft == 2) return 'Expires in 2 days';
+    return '3+ days left';
+  }
+
+  UrgencyLevel get computedUrgency {
+    if (expiryDate == null) return UrgencyLevel.safe;
+    
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final expiry = DateTime(expiryDate!.year, expiryDate!.month, expiryDate!.day);
+    final daysLeft = expiry.difference(today).inDays;
+    
+    if (daysLeft <= 1) return UrgencyLevel.critical;
+    if (daysLeft <= 2) return UrgencyLevel.soon;
+    return UrgencyLevel.safe;
   }
 
   String get timeAgo {

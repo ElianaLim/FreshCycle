@@ -53,7 +53,7 @@ class ListingDetailScreen extends StatelessWidget {
       Navigator.pop(context);
     }
   }
-
+// # This function was created using Generative AI
   @override
   Widget build(BuildContext context) {
     final listingProvider = context.watch<ListingProvider>();
@@ -492,7 +492,6 @@ class ListingDetailScreen extends StatelessWidget {
                     ),
                   ],
 
-                  // Bottom spacing so content doesn't get hidden behind the floating bottom bar
                   const SizedBox(height: 100),
                 ],
               ),

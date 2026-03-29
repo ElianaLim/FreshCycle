@@ -10,7 +10,6 @@ import '../providers/navigation_provider.dart';
 import '../theme/app_theme.dart';
 import '../models/listing.dart';
 import '../models/pantry_item.dart';
-import '../models/user.dart';
 import '../services/pantry_notification_service.dart';
 import '../services/local_notification_service.dart';
 import 'post_listing_screen.dart';
@@ -59,7 +58,6 @@ class _PantryScreenState extends State<PantryScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Attach listener once after the first frame so context is ready
     final nav = context.read<NavigationProvider>();
     nav.removeListener(_onNavChanged);
     nav.addListener(_onNavChanged);
@@ -80,7 +78,6 @@ class _PantryScreenState extends State<PantryScreen>
     _highlightController.repeat(reverse: true);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Scroll horizontal lists to the highlighted card (card width = 140 + 12 margin)
       final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
       final item = myPantry.firstWhere((i) => i.id == itemId, orElse: () => myPantry.first);
       final expiry = DateTime(item.computedExpiryDate.year, item.computedExpiryDate.month, item.computedExpiryDate.day);
@@ -135,7 +132,6 @@ class _PantryScreenState extends State<PantryScreen>
     super.dispose();
   }
 
-  // ── Database helpers ────────────────────────────────────────────────────────
 
   Future<void> _loadPantry() async {
     setState(() => _isLoading = true);
@@ -229,7 +225,6 @@ class _PantryScreenState extends State<PantryScreen>
     }
   }
 
-  // ── Urgency helpers ─────────────────────────────────────────────────────────
 
   UrgencyLevel _calculateUrgency(DateTime expiry) {
     final today = DateTime(
@@ -263,8 +258,7 @@ class _PantryScreenState extends State<PantryScreen>
     return demoDatabase[scannedCode] ?? 'Scanned Item ($scannedCode)';
   }
 
-  // ── Add / Edit sheet ────────────────────────────────────────────────────────
-
+// # This function was created using Generative AI
   void _showAddItemSheet({PantryItem? existingItem, int? index}) {
     final isEditing = existingItem != null;
     final nameController = TextEditingController(text: existingItem?.name);
@@ -687,7 +681,7 @@ class _PantryScreenState extends State<PantryScreen>
       ),
     );
   }
-
+// # This function was created using Generative AI
   // ── Convert to Listing ────────────────────────────────────────────────────────────
 
   Future<void> _convertToListing(PantryItem item) async {
@@ -875,7 +869,6 @@ class _PantryScreenState extends State<PantryScreen>
     return Icon(Icons.inventory_2_outlined, size: size, color: color);
   }
 
-  // ── Card builders (unchanged from original) ─────────────────────────────────
 
   Widget _buildExpiringCard(PantryItem item) {
     final barColor = _progressBarColor(item);
@@ -1259,8 +1252,7 @@ class _PantryScreenState extends State<PantryScreen>
         );
   }
 
-  // ── List builder ────────────────────────────────────────────────────────────
-
+// # This function was created using Generative AI
   Widget _buildPantryList() {
     final today = DateTime(
       DateTime.now().year,
@@ -1562,7 +1554,6 @@ class _PantryScreenState extends State<PantryScreen>
     );
   }
 
-  // ── Build ───────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {

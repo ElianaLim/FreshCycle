@@ -41,20 +41,17 @@ class SellingCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image with urgency overlay
             ClipRRect(
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(14),
               ),
               child: Stack(
                 children: [
-                  // Show actual image if available, else show category icon
                   if (listing.images != null && listing.images!.isNotEmpty)
                     _buildCardImage(listing.images!.first)
                   else
                     _buildPlaceholder(),
 
-                  // Urgency badge top-left
                   Positioned(
                     top: 10,
                     left: 10,
@@ -88,7 +85,6 @@ class SellingCard extends StatelessWidget {
                       ),
                     ),
 
-                  // Action button (Edit if it's yours, Save if it's not)
                   Positioned(
                     bottom: 8,
                     right: 10,
@@ -127,7 +123,7 @@ class SellingCard extends StatelessWidget {
                             child: Icon(
                               isOwnListing
                                   ? Icons
-                                        .edit_rounded // Show edit if it's yours
+                                        .edit_rounded // Show edit if owned
                                   : (listing.isSaved
                                         ? Icons.bookmark_rounded
                                         : Icons.bookmark_border_rounded),
@@ -145,10 +141,8 @@ class SellingCard extends StatelessWidget {
               ),
             ),
 
-            // Urgency progress bar
             UrgencyBar(urgency: listing.urgency),
 
-            // Content
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(10),
@@ -222,7 +216,6 @@ class SellingCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
 
-                    // Removed the buggy 'Expanded' from here
                     Text(
                       listing.description,
                       style: const TextStyle(

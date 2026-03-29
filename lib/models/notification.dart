@@ -1,4 +1,3 @@
-// Notification types for the app
 enum NotificationType {
   newMessage,
   listingSaved,
@@ -13,14 +12,13 @@ enum NotificationType {
   pantryExpired,
 }
 
-// Notification model representing a single notification
 class AppNotification {
   final String id;
   final String userId;
   final NotificationType type;
   final String title;
   final String body;
-  final String? relatedId; // Can be listing ID, conversation ID, etc.
+  final String? relatedId; 
   final bool isRead;
   final DateTime createdAt;
 
@@ -64,7 +62,6 @@ class AppNotification {
     };
   }
 
-  // Helper to get the appropriate icon for each notification type
   String get iconName {
     switch (type) {
       case NotificationType.newMessage:
@@ -92,7 +89,6 @@ class AppNotification {
     }
   }
 
-  // Get time label for display
   String get timeLabel {
     final diff = DateTime.now().difference(createdAt);
     if (diff.inMinutes < 1) return 'Just now';

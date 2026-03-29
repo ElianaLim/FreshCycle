@@ -1,6 +1,4 @@
-// lib/screens/messages_screen.dart
 import 'dart:async';
-
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -51,7 +49,6 @@ class _MessagesScreenState extends State<MessagesScreen>
     final initialId = widget.initialConversationId;
     if (initialId == null || initialId.isEmpty) return;
 
-    // Ensure we don't navigate during build phase
     if (!mounted) return;
 
     final messagesProvider = Provider.of<MessagesProvider>(
@@ -245,7 +242,6 @@ class _ConversationList extends StatelessWidget {
   }
 }
 
-// ── Conversation tile ─────────────────────────────────────────────────────────
 
 class _ConversationTile extends StatelessWidget {
   final Conversation conversation;
@@ -264,7 +260,6 @@ class _ConversationTile extends StatelessWidget {
     final avatarIndex =
         c.participantId.hashCode.abs() % FreshCycleTheme.avatarBgs.length;
 
-    // Get unread count from notifications provider to keep it in sync
     final notificationsProvider = context.watch<NotificationsProvider>();
     final unreadCount = notificationsProvider
         .getUnreadMessageNotificationsCount(c.id);
@@ -466,7 +461,6 @@ class _ContextChip extends StatelessWidget {
   }
 }
 
-// ── Chat detail screen ────────────────────────────────────────────────────────
 
 class ChatScreen extends StatefulWidget {
   final Conversation conversation;
@@ -505,14 +499,12 @@ class ChatScreenState extends State<ChatScreen> {
       messagesProvider.refreshConversation(widget.conversation.id);
     });
 
-    // Lightweight polling for incoming messages in active chat.
     _refreshTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       if (!mounted) return;
       context.read<MessagesProvider>().refreshConversation(
         widget.conversation.id,
       );
     });
-    // Mark messages as read and also mark related notifications as read
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _markAsRead();
     });

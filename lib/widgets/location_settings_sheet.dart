@@ -245,7 +245,6 @@ class _LocationSettingsSheetState extends State<LocationSettingsSheet> {
       ),
       child: Column(
         children: [
-          // Handle
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: Center(
@@ -259,7 +258,6 @@ class _LocationSettingsSheetState extends State<LocationSettingsSheet> {
               ),
             ),
           ),
-          // Title
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
             child: Row(
@@ -295,11 +293,9 @@ class _LocationSettingsSheetState extends State<LocationSettingsSheet> {
               ],
             ),
           ),
-          // Map section
           Expanded(
             child: Stack(
               children: [
-                // Map
                 FlutterMap(
                   mapController: _mapController,
                   options: MapOptions(
@@ -318,7 +314,6 @@ class _LocationSettingsSheetState extends State<LocationSettingsSheet> {
                           'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.flutter_application_1',
                     ),
-                    // Radius circle (blue overlay like Facebook Marketplace)
                     CircleLayer(
                       circles: [
                         CircleMarker(
@@ -344,7 +339,6 @@ class _LocationSettingsSheetState extends State<LocationSettingsSheet> {
                     ),
                   ],
                 ),
-                // Location info overlay - now showing reverse geocoded address
                 Positioned(
                   top: 12,
                   left: 12,
@@ -439,7 +433,6 @@ class _LocationSettingsSheetState extends State<LocationSettingsSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Location text input with search only (no preset dropdown)
                 const Text(
                   'Search Location',
                   style: TextStyle(
@@ -500,7 +493,6 @@ class _LocationSettingsSheetState extends State<LocationSettingsSheet> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                // Continuous radius slider - 1km to 10km
                 const Text(
                   'Search Radius',
                   style: TextStyle(
@@ -532,14 +524,13 @@ class _LocationSettingsSheetState extends State<LocationSettingsSheet> {
                       color: Colors.white,
                       fontWeight: FontWeight.w500,
                     ),
-                    // Show more tick marks for granular control
                     showValueIndicator: ShowValueIndicator.always,
                   ),
                   child: Slider(
                     value: _selectedProximity,
                     min: 1.0, // 1km minimum
                     max: 10.0, // 10km maximum
-                    divisions: 90, // 0.1 km increments for granular control
+                    divisions: 90, 
                     label: '${_selectedProximity.toStringAsFixed(1)} km',
                     onChanged: (value) {
                       setState(() {

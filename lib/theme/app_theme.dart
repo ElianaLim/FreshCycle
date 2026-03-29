@@ -119,6 +119,7 @@ class FreshCycleTheme {
 }
 
 Color urgencyColor(dynamic urgency) {
+  if (urgency == null) return FreshCycleTheme.urgencySafe;
   switch (urgency.toString()) {
     case 'UrgencyLevel.critical':
       return FreshCycleTheme.urgencyCritical;
@@ -130,6 +131,7 @@ Color urgencyColor(dynamic urgency) {
 }
 
 Color urgencyBgColor(dynamic urgency) {
+  if (urgency == null) return FreshCycleTheme.urgencySafeBg;
   switch (urgency.toString()) {
     case 'UrgencyLevel.critical':
       return FreshCycleTheme.urgencyCriticalBg;

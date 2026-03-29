@@ -16,7 +16,6 @@ class ListingProvider extends ChangeNotifier {
   List<Listing> get savedRequests => _requests.where((r) => r.isSaved).toList();
   bool get isLoading => _isLoading;
 
-  /// Load listings from database and append to hardcoded listings
   Future<void> loadListingsFromDb() async {
     if (_isLoading) return;
     _isLoading = true;
@@ -40,12 +39,10 @@ class ListingProvider extends ChangeNotifier {
         if (request != null) newRequests.add(request);
       }
 
-      // Combine with sample data (sample data first, then DB data)
       _listings = [...sampleListings, ...newListings];
       _requests = [...sampleRequests, ...newRequests];
     } catch (e) {
       print('Error loading listings from DB: $e');
-      // Keep sample data on error
       _listings = List.from(sampleListings);
       _requests = List.from(sampleRequests);
     }
@@ -54,7 +51,6 @@ class ListingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Map database row to Listing object
   Future<Listing?> _mapDbToListing(Map<String, dynamic> row) async {
     try {
       final sellerId = row['seller_id'] as String?;
@@ -75,7 +71,28 @@ class ListingProvider extends ChangeNotifier {
       );
 
       final typeStr = row['type'] as String? ?? 'selling';
-      final urgencyStr = row['urgency'] as String? ?? 'safe';
+
+      // Compute urgency from expiry date
+      DateTime? expiryDate;
+      if (row['expiry_date'] != null) {
+        expiryDate = DateTime.tryParse(row['expiry_date'] as String);
+      }
+      
+      UrgencyLevel? computedUrgency;
+      if (expiryDate != null) {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final expiry = DateTime(expiryDate.year, expiryDate.month, expiryDate.day);
+        final daysLeft = expiry.difference(today).inDays;
+        
+        if (daysLeft <= 1) {
+          computedUrgency = UrgencyLevel.critical;
+        } else if (daysLeft <= 2) {
+          computedUrgency = UrgencyLevel.soon;
+        } else {
+          computedUrgency = UrgencyLevel.safe;
+        }
+      }
 
       return Listing(
         id: row['id'] as String,
@@ -86,13 +103,11 @@ class ListingProvider extends ChangeNotifier {
         category: row['category'] as String? ?? 'Uncategorized',
         price: (row['price'] as num?)?.toDouble(),
         originalPrice: (row['original_price'] as num?)?.toDouble(),
-        expiryDate: row['expiry_date'] != null
-            ? DateTime.tryParse(row['expiry_date'] as String)
-            : null,
+        expiryDate: expiryDate,
         postedAt: row['posted_at'] != null
             ? DateTime.tryParse(row['posted_at'] as String) ?? DateTime.now()
             : DateTime.now(),
-        urgency: _parseUrgency(urgencyStr),
+        urgency: computedUrgency,
         seller: seller,
         offerCount: row['offer_count'] as int?,
         note: row['note'] as String?,

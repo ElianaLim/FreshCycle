@@ -9,7 +9,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // Notification settings (these would be persisted to shared preferences or backend)
   bool _pushNotifications = true;
   bool _emailNotifications = false;
   bool _locationServices = true;
