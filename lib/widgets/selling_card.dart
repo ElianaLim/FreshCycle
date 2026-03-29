@@ -148,6 +148,7 @@ class SellingCard extends StatelessWidget {
                 padding: const EdgeInsets.all(10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
@@ -201,8 +202,6 @@ class SellingCard extends StatelessWidget {
                       ],
                     ),
 
-                    const SizedBox(height: 6),
-
                     Text(
                       listing.title,
                       style: const TextStyle(
@@ -214,7 +213,6 @@ class SellingCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
 
                     Text(
                       listing.description,
@@ -226,7 +224,6 @@ class SellingCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const Spacer(),
                     Wrap(
                       crossAxisAlignment: WrapCrossAlignment.center,
                       spacing: 6,

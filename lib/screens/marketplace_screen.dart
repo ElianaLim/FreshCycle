@@ -740,8 +740,6 @@ class _StatsBar extends StatelessWidget {
         children: [
           _StatItem(label: 'Listings nearby', value: '34'),
           _divider(),
-          _StatItem(label: 'kg saved this week', value: '12.4'),
-          _divider(),
           _StatItem(label: 'Requests open', value: '8'),
         ],
       ),
