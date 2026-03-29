@@ -1,0 +1,54 @@
+# PROMPTS.txt - Flutter Project Boilerplate Prompts
+# This file documents the various prompts used to build the FreshCycle Flutter project
+
+================================================================================
+PROJECT SETUP PROMPTS
+================================================================================
+
+Prompt: "Set up Flutter project with environment variables using flutter_dotenv"
+- Used to configure .env file handling
+
+================================================================================
+MODEL CREATION PROMPTS
+================================================================================
+
+Prompt: "Create a Flutter model class boilerplate for User with fields: id, email, name, avatarUrl, bio, location, rating, createdAt"
+- Used to generate lib/models/user.dart
+
+Prompt: "Create a Flutter model class boilerplate for Listing with fields: id, sellerId, title, description, price, imageUrls, category, condition, location, createdAt"
+- Used to generate lib/models/listing.dart
+
+Prompt: "Create a Flutter model class boilerplate for Recipe with fields: id, title, description, ingredients, instructions, imageUrl, prepTime, cookTime, servings"
+- Used to generate lib/models/recipe.dart
+
+Prompt: "Create a Flutter model class boilerplate for PantryItem with fields: id, userId, name, quantity, unit, expiryDate, category"
+- Used to generate lib/models/pantry_item.dart
+
+Prompt: "Create a Flutter model class boilerplate for Message with fields: id, senderId, receiverId, content, timestamp, isRead"
+- Used to generate lib/models/messages.dart
+
+Prompt: "Create a Flutter model class boilerplate for AppNotification with fields: id, userId, title, body, type, data, createdAt, isRead"
+- Used to generate lib/models/notification.dart
+
+
+================================================================================
+DATA LAYER PROMPTS
+================================================================================
+
+Prompt: "Create a Flutter database service boilerplate with Supabase initialization and connection handling"
+- Used to generate lib/data/db.dart
+
+Prompt: "Create a Flutter location settings sheet  boilerplate with map picker, current location, search"
+- Used to generate lib/widgets/location_settings_sheet.dart
+
+================================================================================
+MAIN SHELL PROMPTS
+================================================================================
+
+Prompt: "Create a Flutter main shell with bottom navigation bar with 5 tabs: Pantry, Recipes, Market, Notifications, Profile"
+- Used to generate lib/main.dart MainShell
+
+Prompt: "Create a Flutter app with MultiProvider setup for all state providers"
+- Used to generate FreshCycleApp with Provider configuration
+
+The prompts above were used as a starting point to build the boilerplate code. Actual implementation includes additional features and refinements based on the app requirements.
