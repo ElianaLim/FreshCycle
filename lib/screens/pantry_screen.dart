@@ -1090,9 +1090,15 @@ class _PantryScreenState extends State<PantryScreen>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PostListingScreen(existingListing: prefilledListing),
+        builder: (_) => PostListingScreen(
+          existingListing: prefilledListing,
+          sourcePantryItem: item,
+        ),
       ),
-    );
+    ).then((_) {
+      // After returning from PostListingScreen, refresh the pantry list
+      _loadPantry();
+    });
   }
 
   // ── Delete ──────────────────────────────────────────────────────────────────

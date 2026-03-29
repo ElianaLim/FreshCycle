@@ -7,13 +7,19 @@ import '../providers/listing_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/user.dart';
 import '../models/listing.dart';
+import '../models/pantry_item.dart';
 import '../data/db.dart';
 import 'profile_screen.dart';
 
 class PostListingScreen extends StatefulWidget {
   final Listing? existingListing;
+  final PantryItem? sourcePantryItem;
 
-  const PostListingScreen({super.key, this.existingListing});
+  const PostListingScreen({
+    super.key,
+    this.existingListing,
+    this.sourcePantryItem,
+  });
 
   @override
   State<PostListingScreen> createState() => _PostListingScreenState();
@@ -120,6 +126,14 @@ class _PostListingScreenState extends State<PostListingScreen> {
                     : null,
                 tags: [],
               );
+
+              // Delete the source pantry item after successful listing creation
+              if (widget.sourcePantryItem != null) {
+                await DB.client
+                    .from('pantry_items')
+                    .delete()
+                    .eq('id', widget.sourcePantryItem!.id);
+              }
 
               // Also add to local provider for immediate display
               final newListing = Listing(
