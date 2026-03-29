@@ -119,6 +119,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
       // 3. Call the Live LLM Service
       final generatedRecipe = await AiRecipeService.generateRecipeFromPantry(
         items,
+        expiringOnly,
       );
 
       if (!mounted) return;

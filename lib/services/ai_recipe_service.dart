@@ -5,7 +5,7 @@ import '../models/recipe.dart';
 import '../models/pantry_item.dart';
 
 class AiRecipeService {
-  static Future<Recipe> generateRecipeFromPantry(List<PantryItem> items) async {
+  static Future<Recipe> generateRecipeFromPantry(List<PantryItem> items, bool expiringOnly) async {
     final apiKey = dotenv.env['GEMINI_API_KEY'];
     if (apiKey == null || apiKey.isEmpty) {
       throw Exception('Gemini API key not found in .env file');
@@ -22,7 +22,8 @@ class AiRecipeService {
     final itemNames = items.map((e) => e.name).join(', ');
 
     final prompt = '''
-      You are an expert chef. Create a delicious recipe using some or all of these ingredients: $itemNames.
+      You are an expert chef. Create a delicious recipe using some or all of these ingredients: $itemNames. Note that you don't have to use evverything, look and see what ingredient best complements with one another.
+      However if $expiringOnly is true, prioritize using ingredients that are earliest to expire which is the first items in the list
       You can assume the user has basic cooking necessities like oil, salt, pepper, sugar, garlic, and water if they do not have so, recommend for them to make a request in the Marketplace tap in the app.
       
       Respond strictly in the following JSON format, do not italicize or bold any text:
