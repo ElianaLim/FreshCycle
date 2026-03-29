@@ -21,7 +21,7 @@ final List<Listing> sampleListings = [
     allowDelivery: true,
     dealLocation: 'Krus na Ligas waiting shed',
     seller: const SellerProfile(
-      id: 'a2091c43-22cd-4fcc-a38a-74dce0c2e1df',
+      id: 'd29621f3-3d4c-4376-b1d3-1920ff706f12',
       name: 'Maria R.',
       initials: 'MR',
       rating: 4.9,
@@ -200,7 +200,7 @@ final List<Conversation> sampleConversations = [
   // --- Listing context ---
   Conversation(
     id: 'c1',
-    participantId: 'a2091c43-22cd-4fcc-a38a-74dce0c2e1df',
+    participantId: 'd29621f3-3d4c-4376-b1d3-1920ff706f12',
     participantName: 'Maria R.',
     participantInitials: 'MR',
     participantIsVerified: true,

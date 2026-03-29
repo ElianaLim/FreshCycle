@@ -382,8 +382,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
         contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
         content: Text(
           'Price: P${(listing.price ?? 0).toStringAsFixed(2)}\n'
-          'Transaction fee (2%): P${((listing.price ?? 0) * 0.02).toStringAsFixed(2)}\n'
-          'Total: P${((listing.price ?? 0) * 1.02).toStringAsFixed(2)}\n\n'
+          'Transaction fee (1.5%): P${((listing.price ?? 0) * 0.015).toStringAsFixed(2)}\n'
+          'Total: P${((listing.price ?? 0) * 1.015).toStringAsFixed(2)}\n\n'
           'Proceed to buyer confirmation chat for "${listing.title}"?',
         ),
         actions: [

@@ -599,24 +599,6 @@ class ChatScreenState extends State<ChatScreen> {
     if (listingId == null || _isMarkingComplete) return;
 
     final listingProvider = context.read<ListingProvider>();
-    await listingProvider.refreshTransactionState(listingId);
-
-    final buyerId = widget.conversation.participantId;
-    if (!listingProvider.isBuyerConfirmedForListing(
-      listingId,
-      buyerId: buyerId,
-    )) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Seller can complete only after buyer confirms purchase.',
-            ),
-          ),
-        );
-      }
-      return;
-    }
 
     double? soldPrice;
     try {
@@ -627,7 +609,7 @@ class ChatScreenState extends State<ChatScreen> {
       soldPrice = null;
     }
     final rewardPoints = (soldPrice != null && soldPrice > 0)
-        ? (soldPrice * 0.05).round()
+        ? (soldPrice * 0.015).round()
         : 0;
 
     final shouldComplete = await showDialog<bool>(
@@ -636,7 +618,7 @@ class ChatScreenState extends State<ChatScreen> {
         title: const Text('Mark transaction complete?'),
         content: Text(
           rewardPoints > 0
-              ? 'This will finish the transaction, remove the listing from marketplace, and grant +$rewardPoints sprouts (5% of sale price).'
+              ? 'This will finish the transaction, remove the listing from marketplace, and grant +$rewardPoints sprouts (1.5% of sale price).'
               : 'This will finish the transaction, remove the listing from marketplace, and grant sprouts.',
         ),
         actions: [
@@ -745,7 +727,7 @@ class ChatScreenState extends State<ChatScreen> {
       await messagesProvider.sendMessage(
         conversationId: widget.conversation.id,
         text:
-            '[BUYER_CONFIRMED] I confirm this purchase. I understand there is a 2% transaction fee.',
+                '[BUYER_CONFIRMED] I confirm this purchase. I understand there is a 2% transaction fee.',
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -832,14 +814,26 @@ class ChatScreenState extends State<ChatScreen> {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(dialogContext, true),
-                          child: const Text('View rewards'),
+                          child: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'View rewards',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: FilledButton(
                           onPressed: () => Navigator.pop(dialogContext, false),
-                          child: const Text('Awesome!'),
+                          child: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'Awesome!',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -875,10 +869,6 @@ class ChatScreenState extends State<ChatScreen> {
       widget.currentUserId,
     );
     final txState = listingProvider.transactionStateForListing(listingId);
-    final isBuyerConfirmedForThisChat =
-        txState != null &&
-        txState.buyerConfirmed &&
-        txState.buyerId == c.participantId;
     final buyerConfirmedByCurrentUser =
         txState != null &&
         txState.buyerConfirmed &&
@@ -950,8 +940,8 @@ class ChatScreenState extends State<ChatScreen> {
                     Text(
                       isCompleted
                           ? 'Transaction completed'
-                          : isSeller && !isBuyerConfirmedForThisChat
-                          ? 'Waiting for buyer confirmation'
+                          : isSeller
+                          ? 'Ready to confirm'
                           : isBuyer && buyerConfirmedByCurrentUser
                           ? 'Purchase confirmed. Waiting for seller.'
                           : isBuyer && buyerConfirmedByAnotherUser
@@ -1005,10 +995,7 @@ class ChatScreenState extends State<ChatScreen> {
                 )
               else if (isSeller)
                 GestureDetector(
-                  onTap:
-                      isCompleted ||
-                          _isMarkingComplete ||
-                          !isBuyerConfirmedForThisChat
+                  onTap: isCompleted || _isMarkingComplete
                       ? null
                       : _markTransactionComplete,
                   child: Container(

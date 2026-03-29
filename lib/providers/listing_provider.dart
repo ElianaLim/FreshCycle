@@ -323,17 +323,24 @@ class ListingProvider extends ChangeNotifier {
     if (index == -1) return false;
 
     final listing = _listings[index];
-    final tx = _transactionStates[listingId];
-    if (tx == null || !tx.buyerConfirmed || tx.buyerId == null) {
-      return false;
-    }
 
+    // Seller must own the listing
     if (listing.seller.id != sellerId) return false;
 
-    final useDb =
-        _isUuid(listingId) && _isUuid(sellerId) && _isUuid(tx.buyerId);
+    final tx = _transactionStates[listingId];
 
-    if (useDb) {
+    // Allow seller to complete if:
+    // 1. Listing exists and seller owns it (checked above)
+    // 2. Either:
+    //    - A transaction exists with any buyer confirmation state
+    //    - OR no transaction exists yet (seller completing without buyer confirmation)
+
+    final useDb = _isUuid(listingId) && _isUuid(sellerId);
+
+    if (useDb && tx != null && tx.buyerId != null) {
+      // Transaction exists with buyer ID; complete it
+      if (!_isUuid(tx.buyerId)) return false;
+
       try {
         final didPersist = await DB.completeListingTransaction(
           listingId: listingId,
@@ -347,15 +354,16 @@ class ListingProvider extends ChangeNotifier {
       }
     }
 
+    // Mark as complete locally
     _completedListingSellers[listingId] = listing.seller.id;
     _completedListingIds.add(listingId);
     _transactionStates[listingId] = ListingTransactionState(
       listingId: listingId,
-      buyerId: tx.buyerId,
-      buyerConfirmed: true,
+      buyerId: tx?.buyerId,
+      buyerConfirmed: tx?.buyerConfirmed ?? false,
       completed: true,
-      feePercent: tx.feePercent,
-      agreedPrice: tx.agreedPrice,
+      feePercent: tx?.feePercent ?? 0.02,
+      agreedPrice: tx?.agreedPrice ?? listing.price,
     );
 
     _listings.removeAt(index);
