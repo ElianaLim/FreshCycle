@@ -33,6 +33,15 @@ class ListingTransactionState {
 }
 
 class ListingProvider extends ChangeNotifier {
+  static final RegExp _uuidPattern = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
+  );
+
+  bool _isUuid(String? value) {
+    if (value == null) return false;
+    return _uuidPattern.hasMatch(value);
+  }
+
   List<Listing> _listings = List.from(sampleListings);
   List<Listing> _requests = List.from(sampleRequests);
   final Set<String> _completedListingIds = <String>{};
@@ -245,6 +254,10 @@ class ListingProvider extends ChangeNotifier {
   }
 
   Future<void> refreshTransactionState(String listingId) async {
+    if (!_isUuid(listingId)) {
+      return;
+    }
+
     try {
       final tx = await DB.getListingTransaction(listingId);
       if (tx == null) return;
@@ -262,6 +275,21 @@ class ListingProvider extends ChangeNotifier {
     required double? agreedPrice,
     double feePercent = 0.02,
   }) async {
+    final useDb = _isUuid(listingId) && _isUuid(buyerId) && _isUuid(sellerId);
+
+    if (!useDb) {
+      _transactionStates[listingId] = ListingTransactionState(
+        listingId: listingId,
+        buyerId: buyerId,
+        buyerConfirmed: true,
+        completed: false,
+        feePercent: feePercent,
+        agreedPrice: agreedPrice,
+      );
+      notifyListeners();
+      return true;
+    }
+
     try {
       final tx = await DB.upsertListingTransaction(
         listingId: listingId,
@@ -280,19 +308,9 @@ class ListingProvider extends ChangeNotifier {
       }
     } catch (e) {
       print('Failed to confirm buyer purchase intent in DB: $e');
-      // FALLBACK FOR LOCAL TESTING: Update local state even if DB fails
     }
-    
-    _transactionStates[listingId] = ListingTransactionState(
-      listingId: listingId,
-      buyerId: buyerId,
-      buyerConfirmed: true,
-      completed: false,
-      feePercent: feePercent,
-      agreedPrice: agreedPrice,
-    );
-    notifyListeners();
-    return true;
+
+    return false;
   }
 
   Future<bool> completeListingTransaction(
@@ -312,18 +330,21 @@ class ListingProvider extends ChangeNotifier {
 
     if (listing.seller.id != sellerId) return false;
 
-    try {
-      final didPersist = await DB.completeListingTransaction(
-        listingId: listingId,
-        sellerId: sellerId,
-        buyerId: tx.buyerId!,
-      );
-      if (!didPersist) {
-        print('DB complete returned false, falling back locally.');
+    final useDb =
+        _isUuid(listingId) && _isUuid(sellerId) && _isUuid(tx.buyerId);
+
+    if (useDb) {
+      try {
+        final didPersist = await DB.completeListingTransaction(
+          listingId: listingId,
+          sellerId: sellerId,
+          buyerId: tx.buyerId!,
+        );
+        if (!didPersist) return false;
+      } catch (e) {
+        print('Failed to complete transaction in DB: $e');
+        return false;
       }
-    } catch (e) {
-      print('Failed to complete transaction in DB: $e');
-      // FALLBACK FOR LOCAL TESTING
     }
 
     _completedListingSellers[listingId] = listing.seller.id;
@@ -336,7 +357,7 @@ class ListingProvider extends ChangeNotifier {
       feePercent: tx.feePercent,
       agreedPrice: tx.agreedPrice,
     );
-    
+
     _listings.removeAt(index);
     notifyListeners();
     return true;

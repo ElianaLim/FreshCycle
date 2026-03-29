@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 import '../models/user.dart';
 import '../theme/app_theme.dart';
@@ -81,7 +83,8 @@ class _LoginRegisterScreenState extends State<_LoginRegisterScreen> {
       );
     }
   }
-// # This function was created using Generative AI
+
+  // # This function was created using Generative AI
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -321,6 +324,26 @@ class _ProfileContent extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
+            Container(
+              width: double.infinity,
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+              child: Row(
+                children: [
+                  SvgPicture.asset('assets/logo.svg', width: 30, height: 30),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'FreshCycle',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: FreshCycleTheme.textPrimary,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             // Profile Header
             Container(
               width: double.infinity,
@@ -411,7 +434,7 @@ class _ProfileContent extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            // Rewards Banner
+            // Sprouts Banner
             GestureDetector(
               onTap: () {
                 Navigator.push(
@@ -442,8 +465,8 @@ class _ProfileContent extends StatelessWidget {
                         color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Icon(
-                        Icons.card_giftcard_rounded,
+                      child: const HugeIcon(
+                        icon: HugeIcons.strokeRoundedPlant01,
                         color: Colors.white,
                         size: 20,
                       ),
@@ -454,7 +477,7 @@ class _ProfileContent extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Your Rewards',
+                            'Your Sprouts',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
@@ -463,7 +486,7 @@ class _ProfileContent extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '$rewardPoints Points',
+                            '$rewardPoints Sprouts',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,

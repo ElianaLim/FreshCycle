@@ -5,16 +5,15 @@ final List<Listing> sampleListings = [
   Listing(
     id: '1',
     type: ListingType.selling,
-    title: 'Kangkong (water spinach)',
-    description:
-        '~800g bundle, freshly harvested this morning. Perfect for sautéing or soup.',
+    title: 'Salmon fillet',
+    description: '~2kg bundle, still fresh!.',
     category: 'Perishable',
-    price: 15,
-    originalPrice: 40,
+    price: 2000,
+    originalPrice: 2500,
     images: [
-      'https://2.bp.blogspot.com/-8ANmgGxNKAg/WgOuFz87I0I/AAAAAAAAK04/ZxYQzmxREUA06UYbNfqcmSqf0b5JPpTDwCLcBGAs/s1600/7543029_f1024.jpg',
+      'https://fisk.com.sg/wp-content/uploads/2020/07/Air-Flown-Norway-Fresh-Smoked-Salmon-Pulpit-Rock-Loin-300g-Pack-768x768.jpg',
     ], // Added Image
-    expiryDate: DateTime.now().add(const Duration(days: 1)),
+    expiryDate: DateTime.now().add(const Duration(days: 10)),
     postedAt: DateTime.now().subtract(const Duration(minutes: 20)),
     distanceKm: 0.3,
     urgency: UrgencyLevel.critical,
@@ -30,7 +29,7 @@ final List<Listing> sampleListings = [
       isVerified: true,
       barangay: 'Diliman',
     ),
-    tags: ['perishable', 'vegetables', 'leafy'],
+    tags: ['perishable', 'fish', 'salmon'],
   ),
   Listing(
     id: '2',
@@ -94,13 +93,13 @@ final List<Listing> sampleListings = [
   Listing(
     id: '4',
     type: ListingType.selling,
-    title: 'Bangus fillets (frozen)',
+    title: 'Steak',
     description:
-        '4 pieces, individually vacuum-sealed. From Dagupan. Best before next week.',
-    category: 'Non-Perishable',
-    price: 120,
-    originalPrice: 220,
-    images: [],
+        '3 pieces (frozen), packaged together. From Dagupan. Best before next week.',
+    category: 'Meat & fish',
+    price: 600,
+    originalPrice: 800,
+    images: ['https://media.istockphoto.com/id/1190150294/photo/raw-steaks.jpg?s=612x612&w=0&k=20&c=oxAlWHkFLcmXnMv7xa3f6H-GBS-LRb7qaqFnnZZCds0%3D'],
     expiryDate: DateTime.now().add(const Duration(days: 5)),
     postedAt: DateTime.now().subtract(const Duration(hours: 5)),
     distanceKm: 0.5,
@@ -209,7 +208,7 @@ final List<Conversation> sampleConversations = [
     participantBarangay: 'Diliman',
     context: ConversationContext.listing,
     relatedListingId: '1',
-    relatedListingTitle: 'Kangkong (water spinach)',
+    relatedListingTitle: 'Salmon fillet',
     messages: [
       ChatMessage(
         id: 'm1',

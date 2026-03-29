@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 import '../models/messages.dart';
 import '../theme/app_theme.dart';
@@ -598,6 +599,8 @@ class ChatScreenState extends State<ChatScreen> {
     if (listingId == null || _isMarkingComplete) return;
 
     final listingProvider = context.read<ListingProvider>();
+    await listingProvider.refreshTransactionState(listingId);
+
     final buyerId = widget.conversation.participantId;
     if (!listingProvider.isBuyerConfirmedForListing(
       listingId,
@@ -633,8 +636,8 @@ class ChatScreenState extends State<ChatScreen> {
         title: const Text('Mark transaction complete?'),
         content: Text(
           rewardPoints > 0
-              ? 'This will finish the transaction, remove the listing from marketplace, and grant +$rewardPoints reward points (5% of sale price).'
-              : 'This will finish the transaction, remove the listing from marketplace, and grant reward points.',
+              ? 'This will finish the transaction, remove the listing from marketplace, and grant +$rewardPoints sprouts (5% of sale price).'
+              : 'This will finish the transaction, remove the listing from marketplace, and grant sprouts.',
         ),
         actions: [
           TextButton(
@@ -686,7 +689,7 @@ class ChatScreenState extends State<ChatScreen> {
   Future<void> _confirmBuyerPurchase() async {
     final listingId = widget.conversation.relatedListingId;
     if (listingId == null || _isBuyerConfirming) return;
-    
+
     if (widget.currentUserId.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -697,9 +700,12 @@ class ChatScreenState extends State<ChatScreen> {
     }
 
     final listingProvider = context.read<ListingProvider>();
+    await listingProvider.refreshTransactionState(listingId);
+
     final txState = listingProvider.transactionStateForListing(listingId);
-    
-    if (txState?.buyerConfirmed == true && txState?.buyerId == widget.currentUserId) {
+
+    if (txState?.buyerConfirmed == true &&
+        txState?.buyerId == widget.currentUserId) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('You already confirmed this purchase.')),
@@ -707,8 +713,9 @@ class ChatScreenState extends State<ChatScreen> {
       }
       return;
     }
-    
-    if (txState?.buyerConfirmed == true && txState?.buyerId != widget.currentUserId) {
+
+    if (txState?.buyerConfirmed == true &&
+        txState?.buyerId != widget.currentUserId) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -723,12 +730,12 @@ class ChatScreenState extends State<ChatScreen> {
     final resolved = listing.isNotEmpty ? listing.first : null;
 
     setState(() => _isBuyerConfirming = true);
-    
+
     // Step 2 of Commitment: Immediately confirm since fee transparency was handled in Marketplace dialog
     final confirmed = await listingProvider.confirmBuyerPurchaseIntent(
       listingId: listingId,
       buyerId: widget.currentUserId,
-      sellerId: resolved?.seller.id ?? widget.conversation.participantId,
+      sellerId: widget.conversation.participantId,
       agreedPrice: resolved?.price,
       feePercent: 0.02,
     );
@@ -737,12 +744,15 @@ class ChatScreenState extends State<ChatScreen> {
       final messagesProvider = context.read<MessagesProvider>();
       await messagesProvider.sendMessage(
         conversationId: widget.conversation.id,
-        text: '[BUYER_CONFIRMED] I confirm this purchase. I understand there is a 2% transaction fee.',
+        text:
+            '[BUYER_CONFIRMED] I confirm this purchase. I understand there is a 2% transaction fee.',
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Purchase confirmed. Waiting for seller to complete.'),
+            content: Text(
+              'Purchase confirmed. Waiting for seller to complete.',
+            ),
           ),
         );
       }
@@ -795,10 +805,10 @@ class ChatScreenState extends State<ChatScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.emoji_events_rounded,
+                  const HugeIcon(
+                    icon: HugeIcons.strokeRoundedPlant01,
                     size: 52,
-                    color: Colors.amber,
+                    color: FreshCycleTheme.primary,
                   ),
                   const SizedBox(height: 12),
                   const Text(
@@ -808,7 +818,7 @@ class ChatScreenState extends State<ChatScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'You earned +$points reward points',
+                    'You earned +$points sprouts',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 15,

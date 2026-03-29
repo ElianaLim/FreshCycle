@@ -19,11 +19,11 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
-  
+
   // Initialize Supabase
   await DB.init();
   await LocalNotificationService.init();
-  
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -41,7 +41,9 @@ class FreshCycleApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()..checkSession()),
-        ChangeNotifierProvider(create: (_) => ListingProvider()..loadListingsFromDb()),
+        ChangeNotifierProvider(
+          create: (_) => ListingProvider()..loadListingsFromDb(),
+        ),
         ChangeNotifierProvider(create: (_) => MessagesProvider()),
         ChangeNotifierProvider(create: (_) => NotificationsProvider()),
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
@@ -71,7 +73,10 @@ class _MainShellState extends State<MainShell> {
     PantryScreen(),
     RecipesScreen(),
     MarketplaceScreen(),
-    _PlaceholderScreen(label: 'Notifications', icon: Icons.notifications_none_rounded),
+    _PlaceholderScreen(
+      label: 'Notifications',
+      icon: Icons.notifications_none_rounded,
+    ),
     ProfileScreen(),
   ];
 
@@ -84,12 +89,12 @@ class _MainShellState extends State<MainShell> {
   void _onNavigationChanged(int newIndex) {
     final nav = context.read<NavigationProvider>();
     final listingProvider = context.read<ListingProvider>();
-    
+
     // Refetch marketplace data when coming back to marketplace tab
     if (_lastIndex != 2 && newIndex == 2) {
       listingProvider.loadListingsFromDb();
     }
-    
+
     _lastIndex = newIndex;
     nav.navigateTo(newIndex);
   }
@@ -108,10 +113,7 @@ class _MainShellState extends State<MainShell> {
     ];
 
     return Scaffold(
-      body: IndexedStack(
-        index: currentIndex,
-        children: screens,
-      ),
+      body: IndexedStack(index: currentIndex, children: screens),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -153,7 +155,9 @@ class _MainShellState extends State<MainShell> {
                   isActive: currentIndex == 3,
                   onTap: () {
                     setState(() {
-                      _notificationsKey = Key('notifications_${DateTime.now().millisecondsSinceEpoch}');
+                      _notificationsKey = Key(
+                        'notifications_${DateTime.now().millisecondsSinceEpoch}',
+                      );
                     });
                     _onNavigationChanged(3);
                   },
@@ -211,8 +215,7 @@ class _NavItem extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 10,
-                fontWeight:
-                    isActive ? FontWeight.w600 : FontWeight.w400,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                 color: isActive
                     ? FreshCycleTheme.primary
                     : FreshCycleTheme.textHint,
@@ -252,10 +255,7 @@ class _PlaceholderScreen extends StatelessWidget {
             const SizedBox(height: 6),
             const Text(
               'Coming soon',
-              style: TextStyle(
-                fontSize: 13,
-                color: FreshCycleTheme.textHint,
-              ),
+              style: TextStyle(fontSize: 13, color: FreshCycleTheme.textHint),
             ),
           ],
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/listing.dart';
 import '../models/messages.dart';
@@ -512,14 +513,21 @@ class _MarketplaceScreenState extends State<MarketplaceScreen>
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Marketplace',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: FreshCycleTheme.textPrimary,
-                    letterSpacing: -0.5,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SvgPicture.asset('assets/logo.svg', width: 28, height: 28),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Marketplace',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: FreshCycleTheme.textPrimary,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Row(

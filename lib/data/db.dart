@@ -6,6 +6,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DB {
   static SupabaseClient? _client;
+  static final RegExp _uuidPattern = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
+  );
+
+  static bool _isUuid(String? value) {
+    if (value == null) return false;
+    return _uuidPattern.hasMatch(value);
+  }
 
   static SupabaseClient get client {
     if (_client == null) {
@@ -643,6 +651,10 @@ class DB {
   static Future<Map<String, dynamic>?> getListingTransaction(
     String listingId,
   ) async {
+    if (!_isUuid(listingId)) {
+      return null;
+    }
+
     try {
       final response = await _client!
           .from('listing_transactions')
@@ -666,6 +678,10 @@ class DB {
     required double feePercent,
     double? agreedPrice,
   }) async {
+    if (!_isUuid(listingId) || !_isUuid(buyerId) || !_isUuid(sellerId)) {
+      return null;
+    }
+
     try {
       final now = DateTime.now().toIso8601String();
       await _client!.from('listing_transactions').upsert({
@@ -692,26 +708,39 @@ class DB {
     required String sellerId,
     required String buyerId,
   }) async {
+    if (!_isUuid(listingId) || !_isUuid(sellerId) || !_isUuid(buyerId)) {
+      return false;
+    }
+
     try {
       final now = DateTime.now().toIso8601String();
 
-      await _client!
+      final updatedRows = await _client!
           .from('listing_transactions')
           .update({
             'completed': true,
             'seller_confirmed_at': now,
+            'seller_id': sellerId,
             'updated_at': now,
           })
           .eq('listing_id', listingId)
-          .eq('seller_id', sellerId)
           .eq('buyer_id', buyerId)
-          .eq('buyer_confirmed', true);
+          .eq('buyer_confirmed', true)
+          .select('listing_id');
 
-      await _client!
+      if ((updatedRows as List).isEmpty) {
+        return false;
+      }
+
+      final deletedRows = await _client!
           .from('listings')
           .delete()
           .eq('id', listingId)
-          .eq('seller_id', sellerId);
+          .select('id');
+
+      if ((deletedRows as List).isEmpty) {
+        return false;
+      }
 
       return true;
     } catch (e) {

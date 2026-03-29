@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
@@ -17,14 +18,14 @@ class RewardsScreen extends StatelessWidget {
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text(
-          'Your Rewards',
+          'Your Sprouts',
           style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: () => _showRewardsInfoDialog(context),
-            tooltip: 'How to earn and use rewards',
+            tooltip: 'How to earn and use sprouts',
           ),
         ],
       ),
@@ -52,14 +53,14 @@ class RewardsScreen extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      const Icon(
-                        Icons.card_giftcard_rounded,
+                      const HugeIcon(
+                        icon: HugeIcons.strokeRoundedPlant01,
                         color: Colors.white,
                         size: 40,
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Available Points',
+                        'Available Sprouts',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -142,7 +143,7 @@ class RewardsScreen extends StatelessWidget {
                     isPositive: true,
                   ),
                   _TransactionItem(
-                    title: 'Points Redeemed',
+                    title: 'Sprouts Redeemed',
                     description: 'Discount on next purchase',
                     points: -15,
                     date: 'Mar 15, 2026',
@@ -184,11 +185,15 @@ class RewardsScreen extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.card_giftcard_rounded, color: FreshCycleTheme.primary),
+            const HugeIcon(
+              icon: HugeIcons.strokeRoundedPlant01,
+              color: FreshCycleTheme.primary,
+              size: 20,
+            ),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                'How to Earn & Use Rewards',
+                'How to Earn & Use Sprouts',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -203,7 +208,7 @@ class RewardsScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                '🎁 How to Earn Points',
+                '🎁 How to Earn Sprouts',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -213,11 +218,11 @@ class RewardsScreen extends StatelessWidget {
               const SizedBox(height: 12),
               _InfoItem(
                 icon: Icons.percent,
-                text: 'Earn 1.5% points per transaction',
+                text: 'Earn 1.5% sprouts per transaction',
               ),
               const SizedBox(height: 20),
               const Text(
-                '🏆 How to Use Points',
+                '🏆 How to Use Sprouts',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -258,7 +263,7 @@ class RewardsScreen extends StatelessWidget {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'The more you contribute to reducing food waste, the more points you earn!',
+                        'The more you contribute to reducing food waste, the more sprouts you earn!',
                         style: TextStyle(
                           fontSize: 13,
                           color: FreshCycleTheme.textSecondary,
@@ -386,7 +391,7 @@ class _TransactionItem extends StatelessWidget {
             ),
           ),
           Text(
-            '${isPositive ? '+' : ''}$points pts',
+            '${isPositive ? '+' : ''}$points sprouts',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
