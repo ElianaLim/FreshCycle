@@ -1,7 +1,8 @@
 # FreshCycle
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Flutter-3.9.2-blue?logo=flutter" alt="Flutter Version">
+  <img src="https://img.shields.io/badge/Flutter-blue?logo=flutter" alt="Flutter">
+  <img src="https://img.shields.io/badge/Dart_SDK-3.9.2+-blue?logo=dart" alt="Dart SDK">
   <img src="https://img.shields.io/badge/State-Management-Provider-green" alt="Provider">
   <img src="https://img.shields.io/badge/Backend-Supabase-orange" alt="Supabase">
 </p>
@@ -16,6 +17,7 @@ FreshCycle is a Flutter mobile application that helps reduce food waste by enabl
 - Visual urgency indicators (safe, soon, critical)
 - Automatic expiry notifications
 - Barcode scanning support
+- OCR scanning to extract expiry dates from photos (Google ML Kit)
 - Track item costs
 
 ### AI Recipe Generation
@@ -24,7 +26,7 @@ FreshCycle is a Flutter mobile application that helps reduce food waste by enabl
 - Recipes include prep time, cook time, servings, ingredients, and step-by-step instructions
 
 ### Marketplace
-- **Selling**: Post surplus food items for sale at discounted prices
+- **Selling**: Post surplus food items for sale at discounted prices, with photo uploads
 - **Requesting**: Request food items that users need
 - Location-based filtering (barangay-level)
 - Seller profiles with ratings and verification
@@ -45,21 +47,22 @@ FreshCycle is a Flutter mobile application that helps reduce food waste by enabl
 ### User Profile
 - Authentication (email/password via Supabase Auth)
 - Edit profile information
-- Points/rewards system
-- Location settings
+- Sprouts rewards system (earn points from listings and completed transactions, with confetti celebration)
+- Location settings (barangay-level via geocoding)
 - My listings management
 
 ## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
-| **Framework** | Flutter 3.9.2 |
-| **Language** | Dart |
+| **Framework** | Flutter |
+| **Language** | Dart 3.9.2+ |
 | **State Management** | Provider |
 | **Backend** | Supabase (PostgreSQL + Auth) |
 | **AI** | Google Gemini 2.5 Flash |
 | **Maps** | Flutter Map + OpenStreetMap |
 | **Notifications** | flutter_local_notifications |
+| **OCR** | Google ML Kit (Text Recognition) |
 | **Storage** | SharedPreferences |
 
 ## Project Structure
@@ -112,7 +115,7 @@ lib/
 
 ## Prerequisites
 
-- Flutter SDK 3.9.2+
+- Flutter SDK (latest stable)
 - Dart SDK 3.9.2+
 - Supabase project (for backend)
 - Google Gemini API key (for AI recipes)
@@ -122,7 +125,7 @@ lib/
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd bh26-maroonproJECt
+   cd FreshCycle
    ```
 
 2. **Install dependencies**
@@ -132,11 +135,9 @@ lib/
 
 3. **Configure environment variables**
    
-   Create a `.env` file in the project root:
-   ```env
-   SUPABASE_URL=your_supabase_url
-   SUPABASE_KEY=your_supabase_anon_key
-   GEMINI_API_KEY=your_gemini_api_key
+   Copy `.env.example` to `.env` and fill in your credentials:
+   ```bash
+   cp .env.example .env
    ```
 
 4. **Run the app**
